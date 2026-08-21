@@ -1,0 +1,75 @@
+# Tract delivery baseline and plan
+
+## Baseline
+
+- The workspace contains seven supplied artifacts and no Git repository or remote.
+- The Lovable archive is a TanStack Start / React 19 / TypeScript / Tailwind prototype. It builds and type-checks, but it has no authentication, database, Supabase configuration, migrations, API, storage, tests, CI, deployment configuration, or operational documentation.
+- All programs, parts, DCRs, forecasts, audit windows, approvals, AFS status, contacts, and accounting results are deterministic mock data generated in the client. Several primary controls are visual-only. The only working exports are the part CSV and browser print for the generated DCR.
+- Useful visual direction to preserve: Tract navy/blue branding, the overview hierarchy, OEM/program/part drill-down, recovery status vocabulary, filtering, DCR document presentation, recovery/forecast charts, and report-card layout.
+- Runtime verification: production build passed; TypeScript passed; configured lint failed with 414 formatting errors; dependency peer validation failed on `h3`/`ocache`; mobile viewport has horizontal overflow and no usable primary navigation; no browser console errors were observed on the six routes.
+
+## Requirements traceability
+
+| Area                                    | Status                        | Source-supported outcome                                                                                                                                                                                                                                                         |
+| --------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recovery accounting                     | Confirmed                     | Recoverable cost, rate periods/effective dates, precise decimals, actual and forecast volumes, recovered/remaining/percent/completion/variance, provenance, revisions, reproducible rules, drill-down, exceptions, reports, filters, exports, audit history.                     |
+| DCR/accrual workflow                    | Confirmed                     | Auto initiator/date, duplicate-aware DCR number, component, multiple parts/programs, supplier contacts, ED&T, piece-price impact, volume, comments, attachments, status, assignments, history, notifications, and entity links.                                                  |
+| Documents                               | Confirmed                     | Private upload/storage/viewing/lifecycle, original retention, human-reviewed AI extraction, field evidence/confidence, correction audit, replaceable server-side provider.                                                                                                       |
+| Integrations                            | Confirmed                     | Provider-neutral connector contracts, secure auth, declarative mappings, previews/validation, manual/scheduled runs, idempotency/retries/errors/history/reconciliation, working CSV/Excel and generic REST paths, documented SAP adapter interface, no arbitrary code execution. |
+| Identity and authorization              | Confirmed                     | Authentication, tenant isolation, database/server enforcement, admin/full-view plus part/program/department/technical-team scopes, combinations, permission audit.                                                                                                               |
+| Enterprise UX                           | Confirmed                     | Persisted production-shaped workflows; accessible responsive experience; explicit empty/loading/success/validation/denied/failure states.                                                                                                                                        |
+| Forecasting                             | Confirmed at capability level | Versioned forecasts, provenance, completion projections, and exception reporting. A specific ML model, MAPE target, nightly training, SAAR/dealer signals, and predictive narrative are not yet confirmed.                                                                       |
+| Claims/profit release                   | Inferred                      | Prototype includes claim packs, contractual clawback windows, over-recovery release, and Finance VP approval. Accounting semantics and approval stages require confirmation before implementation.                                                                               |
+| SOX compliance                          | Inferred                      | Materials promote SOX reporting/risk reduction. Build audit-ready controls, but do not claim certification or compliance without defined controls and customer validation.                                                                                                       |
+| Blockchain and multi-industry expansion | Promotional / unsupported     | Do not implement in the confirmed delivery scope.                                                                                                                                                                                                                                |
+| Volume data provider                    | Conflicting/open              | Direct brief names IHS; materials and prototype name AFS. Keep the adapter configurable until confirmed.                                                                                                                                                                         |
+
+## Proposed architecture
+
+- Keep React, TypeScript, TanStack Router/Start, Tailwind, Radix primitives, and the useful prototype components. Remove the Lovable build wrapper when the standard toolchain is proven equivalent, and replace inactive or unnecessary dependencies deliberately.
+- Use Supabase Postgres, Auth, private Storage, Row Level Security, migrations, and Edge Functions. Use direct client access only for RLS-safe CRUD; privileged workflows, connector credentials, document extraction, notifications, and administrative operations stay server-side.
+- Put `organization_id` on every tenant-owned record. Model memberships and additive grants for administrator, full-view, department, technical team, program, and part scopes. Enforce access with RLS helper functions and authorization integration tests.
+- Store money/rates as Postgres `numeric` and transport decimals as strings. Use one tested decimal calculation library. Separate immutable source events and versioned terms from derived calculation runs/results so every number is reproducible.
+- Core data modules: organizations/memberships/scopes; suppliers/departments/teams/users; OEMs/programs/vehicles/parts; DCRs/status/assignments/comments/attachments/history; contracts/versions/rate periods/currencies; actual volume events; forecast versions/lines; calculation runs/results/exceptions; documents/extraction reviews/evidence; connectors/import runs/staging/errors; audit log/notification outbox.
+- Use private object storage and short-lived signed URLs. Queue extraction/import work, persist retries and run state, and keep provider interfaces replaceable. Connector transformations are declarative schemas/mappings, never customer-supplied executable code.
+- Deploy the existing SSR frontend on a low-cost Cloudflare Worker/Pages target and keep data/auth/storage/background work in Supabase. Use GitHub Actions for formatting, lint, type safety, unit/integration/RLS/E2E tests, build, migration checks, and dependency/security checks. Final provider and production-tier costs will be recorded before activation.
+
+### Current low-usage cost assumption (verified 2026-08-21)
+
+- Development can run at $0 on the Supabase Free and Cloudflare Workers Free tiers, with the documented inactivity and execution limits.
+- A practical production pilot starts at about $30/month: Supabase Pro from $25/month plus Cloudflare Workers Paid at a $5/month account minimum. This excludes domain registration, the licensed production-volume feed, transactional email/SMS, and document extraction, none of which is selected or authorized yet.
+- The base remains about $30/month while usage stays inside the included quotas. Overages are usage-based. Supabase Pro currently includes 100,000 MAU, 8 GB database disk, 250 GB egress, and 100 GB file storage; Cloudflare Workers Paid includes 10 million requests and 30 million CPU-ms monthly. Configure spend and CPU caps.
+- Official pricing references: https://supabase.com/pricing and https://developers.cloudflare.com/workers/platform/pricing/.
+
+## Vertical milestones
+
+1. **Foundation:** promote the prototype into the repository root, initialize Git without rewriting history, standardize the toolchain, make baseline CI green, add environment validation, docs, health checks, demo seeding, and the durable status file.
+2. **Tenant security:** Supabase migrations, Auth, organizations, memberships, additive scopes, RLS, admin permission UI, and authorization tests demonstrating cross-tenant denial.
+3. **Master data and DCR:** persisted suppliers/departments/teams/programs/parts, complete create/edit/assign/status/history workflow, duplicate detection, private attachments, comments, and in-app notification outbox.
+4. **Recovery ledger:** versioned contract terms/rates/effective dates/currencies, actual volume events, decimal calculation engine, recovery results/exceptions, audit history, dashboards and drill-down, boundary/correction/duplicate/negative/over-recovery tests.
+5. **Import framework:** staged CSV and Excel import with mapping/preview/validation/idempotency/reconciliation/run history, then generic REST adapter, scheduled runs, secure credential references, and SAP extension contract/docs.
+6. **Forecasting:** provider-neutral volume source, versioned forecasts/provenance, completion projection, variance/exceptions, forecast-vs-actual reporting, and no unsupported model-quality claims.
+7. **Documents:** contract/DCR lifecycle, extraction job/review UI, field evidence/confidence/corrections, replaceable approved runtime provider, availability/failure behavior, security/cost documentation.
+8. **Reports and approvals:** scoped exports, claim/accrual reports, confirmed approval workflows, notification delivery, audit bundles, and accessible responsive workflow completion.
+9. **Release hardening:** E2E/browser/accessibility/performance/security review, backup/restore and incident guidance, monitoring/logging, deployment runbook, cost model, secret/dead-code/mock-data scan, and release-candidate verification.
+
+## Material risks
+
+- Recovery, FX, rounding, clawback, and approval rules are not defined precisely enough for authoritative accounting.
+- Tenant and scope semantics could require schema rework if external suppliers, OEM customers, or multi-organization users are expected.
+- IHS/AFS licensing, API shape, cadence, and allowed retention are unknown.
+- Documents may contain confidential contract and personal data; provider retention, region, and training policies must be approved.
+- Email/SMS delivery and enterprise SSO would add external services and costs and are not yet authorized.
+- The prototype's synthetic scale and polished claims can mislead reviewers unless all production-facing mock paths and unsupported claims are removed.
+- The current Lovable wrapper, inactive Recharts branch, lint debt, peer mismatch, large bundles, and broken mobile layout require early cleanup.
+
+## Batched questions for the product owner
+
+1. What is the canonical recovery formula, including eligible volume event, rate/effective-date precedence, rounding scale/mode, corrections/returns/negative adjustments, caps, multiple currencies/FX, and over-recovery treatment?
+2. Is the authoritative volume source IHS or AFS, and are actuals shipments, OEM production, or both? What test files/API documentation and licensing constraints are available?
+3. What is the tenant boundary? Can one user belong to multiple organizations, can supplier/OEM contacts sign in, and are part/program/department/team grants additive or restrictive when combined?
+4. What are the exact DCR statuses, transition permissions, approval stages, assignment rules, DCR-number uniqueness scope, and notification triggers/recipients?
+5. Are claim packs, contractual claim/clawback windows, Finance VP profit release, and SOX reports confirmed product workflows or prototype concepts? If confirmed, what are the approval and accounting rules?
+6. Which document types, languages, average/max sizes, monthly volumes, retention periods, data region, and extracted fields are required? Is there an already-approved production extraction API/provider?
+7. What production security/operations requirements apply: deployment region, MFA/SSO, audit retention, backup retention, RPO/RTO, data residency, customer security questionnaires, and compliance commitments?
+8. Please provide the complete Lovable conversation and either an empty GitHub repository/remote or approval to initialize locally and connect a remote later.

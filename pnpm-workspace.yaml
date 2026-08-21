@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+  workerd: true
+overrides:
+  "exceljs>uuid": 11.1.1
+minimumReleaseAgeExclude:
+  - "@cloudflare/workers-types@5.20260821.1"
