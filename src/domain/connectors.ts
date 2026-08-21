@@ -1,4 +1,73 @@
 import { invariant } from "./errors";
+import type { IngestionDomain, IngestionTransport } from "./ingestion";
+
+export interface ProviderAdapterContract {
+  readonly providerKey: string;
+  readonly domain: IngestionDomain;
+  readonly transports: readonly IngestionTransport[];
+  readonly mappingConfigurationId: string;
+  readonly credentialReference?: string;
+  readonly schedule?: string;
+  readonly manualRunsEnabled: boolean;
+  readonly activationState: "disabled" | "configured" | "approved";
+  readonly documentationReference?: string;
+  readonly licenseReference?: string;
+  readonly sampleReference?: string;
+}
+
+export function validateProviderAdapter(
+  contract: ProviderAdapterContract,
+): ProviderAdapterContract {
+  invariant(
+    /^[a-z0-9][a-z0-9_-]*$/.test(contract.providerKey),
+    "Provider key is invalid",
+    "invalid_provider_key",
+  );
+  invariant(
+    contract.transports.length > 0,
+    "At least one transport is required",
+    "connector_transport_required",
+  );
+  invariant(
+    contract.mappingConfigurationId.trim() !== "",
+    "Mapping configuration is required",
+    "connector_mapping_required",
+  );
+  if (contract.credentialReference) {
+    invariant(
+      /^[a-z][a-z0-9+.-]*:\/\//.test(contract.credentialReference),
+      "Credential must be an opaque secret-store reference",
+      "invalid_credential_reference",
+    );
+  }
+  if (contract.activationState === "approved") {
+    invariant(
+      Boolean(contract.documentationReference),
+      "Approved connector requires interface documentation",
+      "connector_documentation_required",
+    );
+    invariant(
+      Boolean(contract.sampleReference),
+      "Approved connector requires approved test samples",
+      "connector_sample_required",
+    );
+    if (contract.providerKey === "ihs" || contract.providerKey === "afs") {
+      invariant(
+        Boolean(contract.licenseReference),
+        "IHS/AFS activation requires a license reference",
+        "connector_license_required",
+      );
+    }
+    if (contract.transports.some((transport) => transport === "rest" || transport === "odata")) {
+      invariant(
+        Boolean(contract.credentialReference),
+        "API activation requires a credential reference",
+        "connector_credential_required",
+      );
+    }
+  }
+  return contract;
+}
 
 export interface RestConnectorConfiguration {
   id: string;
@@ -16,10 +85,23 @@ export interface RestConnectorConfiguration {
 
 export interface SapConnectorContract {
   readonly adapterType: "sap";
-  readonly supportedTransport: "odata" | "rest" | "file-drop";
+  readonly providerKey: string;
+  readonly supportedTransports: readonly ("odata" | "rest" | "file_drop")[];
   readonly credentialReference: string;
   readonly mappingConfigurationId: string;
   readonly reconciliationKeyFields: readonly string[];
+  readonly recordTypes: readonly (
+    | "shipment"
+    | "purchase_order"
+    | "invoice"
+    | "material_document"
+    | "cost"
+    | "correction"
+    | "reversal"
+    | "return"
+  )[];
+  readonly manualRunsEnabled: boolean;
+  readonly schedule?: string;
 }
 
 export function validateRestConnector(

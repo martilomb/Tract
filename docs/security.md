@@ -13,6 +13,9 @@ RLS helper functions are `security definer`, live outside the exposed schemas, p
 - The document bucket is private and has no authenticated `storage.objects` read policy.
 - A server operation may issue a short-lived signed URL only after an organization/scope check.
 - Document versions record size, MIME type, path, SHA-256, actor, and timestamp.
+- Original ingestion objects are private and tenant-prefixed. Raw records, posted vehicle/ERP records, document-term postings, and economic-event postings are immutable.
+- Connector activation stores opaque credential references only. IHS/AFS approval additionally requires documentation, samples, and a license reference.
+- Mapped candidates cannot post until review and approval; organization-scoped economic-event uniqueness prevents a second source from posting the same event.
 - A 25 MiB default limit is enforced. Malware scanning and permitted MIME policy must be selected before production activation.
 
 ## Secrets and logging

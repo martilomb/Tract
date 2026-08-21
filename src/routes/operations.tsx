@@ -17,14 +17,43 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DeterministicDevelopmentExtractor, type ExtractionResult } from "@/domain/documents";
-import { parseCsv, stageVolumeRows, type StagedVolumeRow } from "@/domain/imports";
+import { parseCsv, stageVehicleVolumeRows, type StagedVehicleVolumeRow } from "@/domain/imports";
 
 export const Route = createFileRoute("/operations")({ component: OperationsPage });
 
-const SAMPLE_CSV = `event_id,date,event_type,units,program,part
-SHIP-001,2026-08-01,actual,1250,PROGRAM-A,PART-A
-RETURN-001,2026-08-02,return,-12,PROGRAM-A,PART-A
-INVALID-001,08/03/2026,forecast,not-a-number,PROGRAM-A,PART-A`;
+const SAMPLE_CSV = `event_id,period_start,period_end,data_kind,units,oem,program,model,plant,region,part
+VOL-001,2026-08-01,2026-08-31,actual,1250,OEM-A,PROGRAM-A,MODEL-A,PLANT-A,NA,PART-A
+VOL-002,2026-09-01,2026-09-30,forecast,1375,OEM-A,PROGRAM-A,MODEL-A,PLANT-A,NA,PART-A
+INVALID-001,08/03/2026,2026-10-31,scenario,not-a-number,OEM-A,PROGRAM-A,MODEL-A,PLANT-A,NA,PART-A`;
+
+const ingestionDomains = [
+  {
+    name: "Vehicle volume",
+    source: "IHS / AFS / staged files",
+    authority: "External production actuals, forecasts, revisions, and planning scenarios",
+  },
+  {
+    name: "Contract & DCR documents",
+    source: "Approved private documents",
+    authority: "Contractual terms only after field evidence and human approval",
+  },
+  {
+    name: "SAP & ERP",
+    source: "Customer operational systems",
+    authority:
+      "Shipments, transactions, and available costs; recoverability is classified separately",
+  },
+] as const;
+
+const ingestionLifecycle = [
+  "Received",
+  "Staged",
+  "Validated",
+  "Mapped",
+  "Reviewed",
+  "Approved",
+  "Posted",
+] as const;
 
 const adapters = [
   {
@@ -44,6 +73,12 @@ const adapters = [
       "HTTPS, allowlisted hosts, opaque credential references, retries, and reconciliation required",
   },
   {
+    name: "IHS / AFS vehicle volume",
+    state: "not connected",
+    detail:
+      "Common file/API boundary; licensing, samples, documentation, and credentials are required",
+  },
+  {
     name: "SAP",
     state: "not connected",
     detail: "Adapter boundary documented; specifications and credentials are required",
@@ -52,24 +87,29 @@ const adapters = [
 
 function OperationsPage() {
   const [csv, setCsv] = useState(SAMPLE_CSV);
-  const [staged, setStaged] = useState<readonly StagedVolumeRow[]>([]);
+  const [staged, setStaged] = useState<readonly StagedVehicleVolumeRow[]>([]);
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
 
   const stage = () => {
     try {
       const rows = parseCsv(csv);
-      const result = stageVolumeRows(rows, {
+      const result = stageVehicleVolumeRows(rows, {
         organizationId: "demo-org",
-        source: "development-csv",
+        source: "development-vehicle-volume-csv",
         columns: {
           externalId: "event_id",
-          occurredOn: "date",
-          eventType: "event_type",
+          periodStart: "period_start",
+          periodEnd: "period_end",
+          dataKind: "data_kind",
           units: "units",
+          oemCode: "oem",
           programCode: "program",
+          vehicleModelCode: "model",
+          plantCode: "plant",
+          regionCode: "region",
           partNumber: "part",
         },
-        allowedEventTypes: ["actual", "correction", "return"],
+        allowedDataKinds: ["actual", "forecast", "revised", "scenario"],
       });
       setStaged(result);
       toast.info("CSV staged locally", {
@@ -107,6 +147,39 @@ function OperationsPage() {
       title="Operations"
       description="Import, document, connector, and configuration extension points."
     >
+      <Card className="mb-5">
+        <CardHeader>
+          <CardTitle className="text-base">Confirmed ingestion source boundaries</CardTitle>
+          <CardDescription>
+            Raw source records remain immutable and separate until mapped candidates complete the
+            shared approval lifecycle.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 lg:grid-cols-3">
+            {ingestionDomains.map((domain) => (
+              <div key={domain.name} className="rounded-lg border p-3">
+                <div className="text-sm font-medium">{domain.name}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{domain.source}</div>
+                <p className="mt-2 text-xs">{domain.authority}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Ingestion lifecycle">
+            {ingestionLifecycle.map((status, index) => (
+              <div key={status} className="flex items-center gap-2">
+                <Badge variant={status === "Posted" ? "secondary" : "outline"}>{status}</Badge>
+                {index < ingestionLifecycle.length - 1 && (
+                  <span className="text-muted-foreground" aria-hidden="true">
+                    →
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -114,7 +187,8 @@ function OperationsPage() {
               <FileSpreadsheet className="h-4 w-4" /> Volume import staging
             </CardTitle>
             <CardDescription>
-              Preview and reject invalid rows before immutable source events are committed.
+              Stage external vehicle-production values without treating them as recovered part
+              volume.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -154,7 +228,7 @@ function OperationsPage() {
                             <Badge variant="destructive">rejected</Badge>
                           )}
                         </td>
-                        <td className="p-2 font-mono">{row.normalized?.externalId ?? "—"}</td>
+                        <td className="p-2 font-mono">{row.sourceExternalId || "—"}</td>
                         <td className="p-2 text-muted-foreground">
                           {row.errors.join("; ") || "—"}
                         </td>

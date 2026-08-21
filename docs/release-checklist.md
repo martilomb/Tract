@@ -10,6 +10,10 @@
 - [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass.
 - [ ] Calculation replay produces the same input hash, lines, exact values, and policy version.
 - [ ] Import duplicate, partial failure, retry, cancellation, and reconciliation pass.
+- [ ] IHS/AFS and SAP/ERP adapters remain disabled until provider documentation, licensing where applicable, approved samples, mappings, credentials, and reconciliation thresholds are recorded.
+- [ ] Raw-source retention, mapping-version replay, missing-mapping/conflict/material-revision exceptions, review/approval permissions, and duplicate economic-event posting denial pass.
+- [ ] Document text/table extraction, page/table evidence, confidence/warnings, corrections, human approval, and controlled canonical postings pass with the approved scanner/extractor.
+- [ ] Each accrual's eligible-volume basis and any parts-per-vehicle, take-rate, and allocation rules are contract-approved and effective-dated; vehicle-production totals cannot post directly as part volume.
 - [ ] Full keyboard, screen-reader, contrast, and supported-browser certification passes; the 390 x 844 responsive shell and primary navigation have passed locally.
 - [ ] Backup restore evidence satisfies the approved RPO/RTO.
 - [ ] Structured logs, alerts, incident ownership, spend limits, and retention are configured.

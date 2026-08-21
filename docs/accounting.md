@@ -16,8 +16,13 @@ over-recovery = max(-remaining, 0)
 - Returns and corrections are new signed events. Historical source events are never rewritten.
 - Duplicate event identifiers within an organization and source are rejected.
 - The initial policy includes actual, correction, and return events. Forecast events are included only in a versioned projection, not actual recovery.
+- Every new eligible volume event references an effective approved eligible-volume policy. Its basis is contract/accrual controlled: part shipments, vehicle production, invoiced units, or explicit manual approval.
+- Vehicle-production values remain source units. Conversion to part units requires an approved effective parts-per-vehicle, take-rate, and allocation rule; only actual data can create an actual-volume candidate.
+- SAP/ERP costs and quantities preserve their source classification and do not become recoverable merely because the customer exposed them.
+- Approved contract documents and human-confirmed structured terms define contractual rules. Extraction output alone is never an accounting source of truth.
+- IHS/AFS, SAP/ERP, and contract sources remain independent and reconcile rather than overwrite. The posting registry rejects a second posting for the same economic-event key.
 - One ISO 4217 settlement currency is used per accrual. The schema leaves room for versioned FX rates, but no conversion occurs until the rules are approved.
 - Calculations retain exact decimal precision. Half-even rounding to two decimals is the default settlement/report boundary and is policy-controlled.
 - A policy change requires a new version and effective date. Recalculation produces a visible new run and never silently replaces an earlier result.
 
-The TypeScript implementation is in `src/domain/recovery.ts`; database storage and constraints are in `supabase/migrations/202608210002_product.sql`.
+The TypeScript calculation is in `src/domain/recovery.ts`; source qualification is in `src/domain/ingestion.ts`. Database storage and constraints are in migrations `202608210002_product.sql` and `202608210003_ingestion_domains.sql`.

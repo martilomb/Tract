@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 
-import { importFingerprint, parseCsv, stageVolumeRows } from "@/domain/imports";
+import { importFingerprint, parseCsv, stageVehicleVolumeRows } from "@/domain/imports";
 import { readFirstWorksheet } from "@/server/excel-import.server";
 
 const mapping = {
@@ -9,23 +9,29 @@ const mapping = {
   source: "development-csv",
   columns: {
     externalId: "id",
-    occurredOn: "date",
-    eventType: "type",
+    periodStart: "period_start",
+    periodEnd: "period_end",
+    dataKind: "kind",
     units: "units",
     partNumber: "part",
   },
-  allowedEventTypes: ["actual", "correction", "return"] as const,
+  allowedDataKinds: ["actual", "forecast", "revised", "scenario"] as const,
 };
 
 describe("import staging", () => {
   it("parses quoted CSV and validates every row before commit", () => {
-    const rows = parseCsv(
-      'id,date,type,units,part\r\n"one,1",2026-08-01,actual,12.50,P-1\r\nbad,08/02/2026,forecast,x,P-2',
+    const staged = stageVehicleVolumeRows(
+      parseCsv(
+        'id,period_start,period_end,kind,units,part\r\n"one,1",2026-08-01,2026-08-31,actual,12.50,P-1\r\nbad,2026-09-01,2026-08-01,unknown,x,P-2',
+      ),
+      mapping,
     );
-    const staged = stageVolumeRows(rows, mapping);
     expect(staged[0]?.normalized?.externalId).toBe("one,1");
+    expect(staged[0]?.normalized?.sourceUnits).toBe("12.50");
+    expect(staged[0]?.normalized).not.toHaveProperty("signedEligibleUnits");
     expect(staged[0]?.valid).toBe(true);
     expect(staged[1]?.valid).toBe(false);
+    expect(staged[1]?.sourceExternalId).toBe("bad");
     expect(staged[1]?.errors).toHaveLength(3);
   });
 
@@ -46,13 +52,20 @@ describe("import staging", () => {
   it("reads the first Excel worksheet into the same staging shape", async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Volume");
-    worksheet.addRow(["id", "date", "type", "units", "part"]);
-    worksheet.addRow(["excel-1", "2026-08-01", "actual", 42, "P-1"]);
+    worksheet.addRow(["id", "period_start", "period_end", "kind", "units", "part"]);
+    worksheet.addRow(["excel-1", "2026-08-01", "2026-08-31", "actual", 42, "P-1"]);
     const bytes = new Uint8Array(await workbook.xlsx.writeBuffer());
     const rows = await readFirstWorksheet(bytes);
     expect(rows).toEqual([
-      { id: "excel-1", date: "2026-08-01", type: "actual", units: "42", part: "P-1" },
+      {
+        id: "excel-1",
+        period_start: "2026-08-01",
+        period_end: "2026-08-31",
+        kind: "actual",
+        units: "42",
+        part: "P-1",
+      },
     ]);
-    expect(stageVolumeRows(rows, mapping)[0]?.valid).toBe(true);
+    expect(stageVehicleVolumeRows(rows, mapping)[0]?.valid).toBe(true);
   });
 });

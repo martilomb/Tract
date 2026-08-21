@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { activateConfiguration, type VersionedConfiguration } from "@/domain/configuration";
 import {
   mapRestResponse,
+  validateProviderAdapter,
   validateRestConnector,
   type RestConnectorConfiguration,
 } from "@/domain/connectors";
@@ -36,6 +37,29 @@ describe("connector and configuration boundaries", () => {
     expect(() =>
       validateRestConnector({ ...connector, endpoint: "https://other.example.test/api" }),
     ).toThrow(/allowlisted/);
+  });
+
+  it("keeps IHS and AFS disabled until license, samples, documentation, and credentials exist", () => {
+    expect(() =>
+      validateProviderAdapter({
+        providerKey: "ihs",
+        domain: "vehicle_volume",
+        transports: ["rest"],
+        mappingConfigurationId: "map-1",
+        manualRunsEnabled: true,
+        activationState: "approved",
+      }),
+    ).toThrow(/documentation/i);
+    expect(
+      validateProviderAdapter({
+        providerKey: "afs",
+        domain: "vehicle_volume",
+        transports: ["csv", "excel"],
+        mappingConfigurationId: "map-1",
+        manualRunsEnabled: true,
+        activationState: "disabled",
+      }).activationState,
+    ).toBe("disabled");
   });
 
   it("activates only sequential, effective-dated, same-tenant configuration", () => {

@@ -4,7 +4,7 @@
 
 `GET /api/health` returns `200 ready` only when the required Supabase configuration is valid; otherwise it returns `503 degraded`. It never tests with or returns secret material. Cloudflare observability is configured at 10% head sampling for the initial pilot; adjust sampling against traffic and cost after measuring.
 
-Alert on sustained 5xx rate, repeated authorization denial spikes, failed calculation/import/extraction jobs, outbox retry exhaustion, and database/storage quota thresholds. Preserve request ids across Worker, Supabase, connector, and outbox operations.
+Alert on sustained 5xx rate, repeated authorization denial spikes, failed calculation/import/extraction jobs, ingestion batches stalled in one lifecycle state, open material revisions/source conflicts, reconciliation count differences, duplicate-posting attempts, outbox retry exhaustion, and database/storage quota thresholds. Preserve request ids across Worker, Supabase, connector, and outbox operations.
 
 ## Backup and recovery
 
