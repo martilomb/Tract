@@ -18,6 +18,9 @@ const connector: RestConnectorConfiguration = {
   credentialReference: "secret://volume-provider",
   timeoutMs: 5000,
   maxRetries: 3,
+  retryBackoffMs: 250,
+  maxResponseBytes: 1024 * 1024,
+  maxRecords: 1000,
   recordPath: ["data", "events"],
   fieldMappings: { externalId: ["id"], units: ["quantity"] },
 };

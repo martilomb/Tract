@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 
-import { importFingerprint, parseCsv, stageVehicleVolumeRows } from "@/domain/imports";
+import {
+  cancelImportRun,
+  failImportRun,
+  importFingerprint,
+  parseCsv,
+  planImportCommit,
+  retryImportRun,
+  stageVehicleVolumeRows,
+} from "@/domain/imports";
 import { readFirstWorksheet } from "@/server/excel-import.server";
 
 const mapping = {
@@ -67,5 +75,40 @@ describe("import staging", () => {
       },
     ]);
     expect(stageVehicleVolumeRows(rows, mapping)[0]?.valid).toBe(true);
+  });
+
+  it("keeps partial failures traceable and requires explicit approval before committing valid rows", () => {
+    const rows = stageVehicleVolumeRows(
+      parseCsv(
+        "id,period_start,period_end,kind,units,part\nok,2026-08-01,2026-08-31,actual,10,P-1\nbad,2026-08-01,2026-08-31,actual,not-a-number,P-2",
+      ),
+      mapping,
+    );
+    expect(() =>
+      planImportCommit({ rows, allowPartial: false, actorCanApprovePartial: true }),
+    ).toThrow(/rejected rows/i);
+    expect(() =>
+      planImportCommit({ rows, allowPartial: true, actorCanApprovePartial: false }),
+    ).toThrow(/approval permission/i);
+    expect(planImportCommit({ rows, allowPartial: true, actorCanApprovePartial: true })).toEqual({
+      totalRows: 2,
+      validRows: 1,
+      rejectedRows: 1,
+      partial: true,
+      committableRowNumbers: [2],
+      rejected: [{ rowNumber: 3, errors: ["units must be a decimal number"] }],
+    });
+  });
+
+  it("retries only failed runs and cancels non-terminal runs with permission and a reason", () => {
+    const run = { id: "import-1", status: "validated" as const, attempt: 1 };
+    const failed = failImportRun(run, "Provider timeout");
+    expect(retryImportRun(failed)).toEqual({ id: "import-1", status: "staged", attempt: 2 });
+    expect(
+      cancelImportRun({ run, reason: "Superseded source file", actorCanCancel: true }),
+    ).toMatchObject({ status: "cancelled", failureReason: "Superseded source file" });
+    expect(() =>
+      cancelImportRun({ run, reason: "No longer needed", actorCanCancel: false }),
+    ).toThrow(/permission/i);
   });
 });

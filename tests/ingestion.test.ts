@@ -6,6 +6,7 @@ import {
   deriveEligiblePartUnits,
   detectIngestionExceptions,
   normalizeErpRecord,
+  reconcileIngestionCounts,
   type VehicleVolumeCandidate,
 } from "@/domain/ingestion";
 
@@ -151,5 +152,39 @@ describe("shared ingestion lifecycle", () => {
       recoveryEligible: null,
     });
     expect(record).toMatchObject({ originalValue: "1250.5000", recoveryEligible: null });
+  });
+
+  it("reconciles source, duplicate, candidate, exception, and posting counts", () => {
+    expect(
+      reconcileIngestionCounts({
+        sourceRecordCount: 10,
+        candidateCount: 9,
+        postedCount: 9,
+        duplicateCount: 1,
+        exceptionCount: 0,
+      }),
+    ).toMatchObject({
+      status: "approved",
+      sourceToCandidateDifference: 0,
+      candidateToPostingDifference: 0,
+    });
+    expect(
+      reconcileIngestionCounts({
+        sourceRecordCount: 10,
+        candidateCount: 8,
+        postedCount: 7,
+        duplicateCount: 1,
+        exceptionCount: 2,
+      }).status,
+    ).toBe("review_required");
+    expect(
+      reconcileIngestionCounts({
+        sourceRecordCount: 2,
+        candidateCount: 3,
+        postedCount: 3,
+        duplicateCount: 0,
+        exceptionCount: 0,
+      }).status,
+    ).toBe("failed");
   });
 });

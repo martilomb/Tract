@@ -143,6 +143,17 @@ export interface IngestionException {
   detail: string;
 }
 
+export interface IngestionReconciliation {
+  status: "approved" | "review_required" | "failed";
+  sourceRecordCount: number;
+  candidateCount: number;
+  postedCount: number;
+  duplicateCount: number;
+  exceptionCount: number;
+  sourceToCandidateDifference: number;
+  candidateToPostingDifference: number;
+}
+
 function asDecimal(value: string, field: string): Decimal {
   invariant(value.trim() !== "", `${field} is required`, "invalid_ingestion_decimal");
   const parsed = new Decimal(value);
@@ -233,6 +244,37 @@ export function detectIngestionExceptions(
     }
   }
   return Object.freeze(exceptions.map((exception) => Object.freeze(exception)));
+}
+
+export function reconcileIngestionCounts(input: {
+  sourceRecordCount: number;
+  candidateCount: number;
+  postedCount: number;
+  duplicateCount: number;
+  exceptionCount: number;
+}): IngestionReconciliation {
+  for (const [field, value] of Object.entries(input)) {
+    invariant(
+      Number.isInteger(value) && value >= 0,
+      "Reconciliation counts must be non-negative integers",
+      "invalid_reconciliation_count",
+      { field },
+    );
+  }
+  const sourceToCandidateDifference =
+    input.sourceRecordCount - input.candidateCount - input.duplicateCount;
+  const candidateToPostingDifference = input.candidateCount - input.postedCount;
+  const impossible = sourceToCandidateDifference < 0 || candidateToPostingDifference < 0;
+  const balanced =
+    sourceToCandidateDifference === 0 &&
+    candidateToPostingDifference === 0 &&
+    input.exceptionCount === 0;
+  return Object.freeze({
+    ...input,
+    status: impossible ? "failed" : balanced ? "approved" : "review_required",
+    sourceToCandidateDifference,
+    candidateToPostingDifference,
+  });
 }
 
 export interface EligibleVolumePolicy {

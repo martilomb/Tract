@@ -51,7 +51,9 @@ Raw records, normalized candidates, exceptions, approvals, and postings are sepa
 - Vehicle volume: IHS/AFS-neutral actual/forecast/revised/scenario records, dimensional mappings, immutable forecast versions, relevant part links.
 - ERP: canonical shipments/transactions/cost values with complete original-value provenance and no inferred recoverability.
 - Documents: private versions, hashes, text/tables, extraction jobs, page/table field evidence, confidence/warnings, corrections, immutable approval and destination postings.
-- Controls: audit events, notification outbox, report manifests, approvals.
+- Controls: audit events, notification outbox, destination-at-delivery adapters, report manifests, approvals.
+
+Recovery replay canonicalizes event/rate ordering and hashes the complete terms, policy version, rates, and source events before calculation. Identical economic inputs therefore reproduce the same SHA-256 and exact ordered lines even if an upstream collection returns records in a different order.
 
 ## Demo boundary
 

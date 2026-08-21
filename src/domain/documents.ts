@@ -76,6 +76,7 @@ export function approveExtraction(input: {
   result: ExtractionResult;
   corrections: Readonly<Record<string, string>>;
   correctionEvidence?: Readonly<Record<string, { page: number; text: string; reason: string }>>;
+  requiredFields?: readonly string[];
   reviewerId: string;
   reviewedAt: string;
 }) {
@@ -120,6 +121,21 @@ export function approveExtraction(input: {
       correctionReason: correctionEvidence?.reason,
     };
   });
+  for (const requiredField of input.requiredFields ?? []) {
+    const field = fields.find((candidate) => candidate.key === requiredField);
+    invariant(
+      field && field.approvedValue.trim() !== "",
+      `Required document field ${requiredField} is missing`,
+      "required_extraction_field_missing",
+      { field: requiredField },
+    );
+    invariant(
+      field.evidence,
+      `Required document field ${requiredField} has no source evidence`,
+      "extraction_evidence_required",
+      { field: requiredField },
+    );
+  }
   return Object.freeze({
     status: "approved" as const,
     authoritativeSource: "approved_document_and_human_review" as const,

@@ -60,6 +60,24 @@ describe("documents and reports", () => {
     ).toThrow(/evidence/i);
   });
 
+  it("will not approve a configured required field while it is blank", async () => {
+    const result = await new DeterministicDevelopmentExtractor().extract({
+      documentSha256: "abc",
+      documentType: "contract",
+      bytes: new Uint8Array([1]),
+      configuredFields: ["contract_number"],
+    });
+    expect(() =>
+      approveExtraction({
+        result,
+        corrections: {},
+        requiredFields: ["contract_number"],
+        reviewerId: "reviewer",
+        reviewedAt: "2026-08-21T12:00:00Z",
+      }),
+    ).toThrow(/required document field/i);
+  });
+
   it("neutralizes spreadsheet formulas and emits a reproducible manifest", () => {
     expect(safeSpreadsheetCell("=cmd|' /C calc'!A0")).toMatch(/^'/);
     expect(toCsv([{ part: "P-1", comment: "+unsafe" }])).toContain('"\'+unsafe"');

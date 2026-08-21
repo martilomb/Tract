@@ -43,10 +43,12 @@ The common SAP/ERP adapter supports REST, OData, and approved file drops, plus m
 ## Connector controls
 
 - Files use organization-and-connector SHA-256 fingerprints; API snapshots are also stored as original source objects.
-- REST requires HTTPS, an allowlist, bounded timeouts/retries/responses, and scalar property-path mappings.
-- Credentials are opaque secret-store references, never values in configuration.
+- REST requires HTTPS, an exact hostname allowlist, bounded timeouts/exponential retries/response bytes/record counts, JSON content, and scalar property-path mappings.
+- Credentials are opaque secret-store references, never values in configuration. A server-side resolver supplies validated request headers only for the duration of a run; credential material is absent from results and failure details.
 - Scheduled and manual runs share the same validation, idempotency, reconciliation, history, and monitoring.
-- Redirects to a different host are rejected by the runtime adapter.
+- Redirects are never followed by the runtime adapter. Transient network, 408, 429, and 5xx failures are the only retryable responses.
 - No configuration may contain scripts, expressions, SQL, evaluated templates, arbitrary headers, or customer-supplied executable code.
 
-Domain rules live in `src/domain/ingestion.ts`, file staging in `src/domain/imports.ts`, provider contracts in `src/domain/connectors.ts`, and the canonical schema in `supabase/migrations/202608210003_ingestion_domains.sql`.
+Partial file commits retain every rejected row and require explicit permission. Failed imports alone can retry, non-terminal runs can be cancelled only with permission and a reason, and count reconciliation compares source, duplicate, candidate, exception, and posting totals before approval.
+
+Domain rules live in `src/domain/ingestion.ts`, file staging in `src/domain/imports.ts`, provider contracts in `src/domain/connectors.ts`, the runtime adapter in `src/server/connector-runtime.server.ts`, and the canonical schema in `supabase/migrations/202608210003_ingestion_domains.sql`.

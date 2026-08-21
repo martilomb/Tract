@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateRecovery, settleAmount, type RecoveryPolicy } from "@/domain/recovery";
+import {
+  calculateRecovery,
+  createRecoveryReplay,
+  settleAmount,
+  type RecoveryPolicy,
+} from "@/domain/recovery";
 
 const policy: RecoveryPolicy = {
   id: "default",
@@ -147,5 +152,45 @@ describe("recovery calculation", () => {
         ],
       }),
     ).toThrow(/exactly one/);
+  });
+
+  it("replays canonical inputs to the same hash, exact lines, and policy version", async () => {
+    const events = [
+      {
+        id: "v2",
+        organizationId: "org-a",
+        occurredOn: "2026-07-02",
+        eventType: "return" as const,
+        signedEligibleUnits: "-2",
+        source: "erp",
+      },
+      {
+        id: "v1",
+        organizationId: "org-a",
+        occurredOn: "2026-07-01",
+        eventType: "actual" as const,
+        signedEligibleUnits: "10",
+        source: "erp",
+      },
+    ];
+    const first = await createRecoveryReplay(
+      { terms, policy, ratePeriods: [...rates].reverse(), volumeEvents: events },
+      "2026-08-21T12:00:00Z",
+    );
+    const replay = await createRecoveryReplay(
+      { terms, policy, ratePeriods: rates, volumeEvents: [...events].reverse() },
+      "2026-08-22T12:00:00Z",
+    );
+
+    expect(replay.inputHash).toBe(first.inputHash);
+    expect(replay.result).toEqual(first.result);
+    expect(replay.result.policyVersion).toBe(1);
+    expect(replay.result.lines.map((line) => line.volumeEventId)).toEqual(["v1", "v2"]);
+
+    const changed = await createRecoveryReplay(
+      { terms, policy: { ...policy, version: 2 }, ratePeriods: rates, volumeEvents: events },
+      "2026-08-22T12:00:00Z",
+    );
+    expect(changed.inputHash).not.toBe(first.inputHash);
   });
 });

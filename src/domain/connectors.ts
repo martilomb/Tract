@@ -79,6 +79,9 @@ export interface RestConnectorConfiguration {
   credentialReference?: string;
   timeoutMs: number;
   maxRetries: number;
+  retryBackoffMs: number;
+  maxResponseBytes: number;
+  maxRecords: number;
   recordPath: readonly string[];
   fieldMappings: Readonly<Record<string, readonly string[]>>;
 }
@@ -126,6 +129,27 @@ export function validateRestConnector(
       configuration.maxRetries <= 5,
     "Connector retries must be an integer from 0 to 5",
     "invalid_connector_retries",
+  );
+  invariant(
+    Number.isInteger(configuration.retryBackoffMs) &&
+      configuration.retryBackoffMs >= 100 &&
+      configuration.retryBackoffMs <= 10000,
+    "Connector retry backoff must be between 100 ms and 10 seconds",
+    "invalid_connector_backoff",
+  );
+  invariant(
+    Number.isInteger(configuration.maxResponseBytes) &&
+      configuration.maxResponseBytes >= 1024 &&
+      configuration.maxResponseBytes <= 25 * 1024 * 1024,
+    "Connector response limit must be between 1 KiB and 25 MiB",
+    "invalid_connector_response_limit",
+  );
+  invariant(
+    Number.isInteger(configuration.maxRecords) &&
+      configuration.maxRecords >= 1 &&
+      configuration.maxRecords <= 100000,
+    "Connector record limit must be between 1 and 100,000",
+    "invalid_connector_record_limit",
   );
   invariant(
     Object.keys(configuration.fieldMappings).length > 0,

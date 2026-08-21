@@ -16,7 +16,7 @@ RLS helper functions are `security definer`, live outside the exposed schemas, p
 - Original ingestion objects are private and tenant-prefixed. Raw records, posted vehicle/ERP records, document-term postings, and economic-event postings are immutable.
 - Connector activation stores opaque credential references only. IHS/AFS approval additionally requires documentation, samples, and a license reference.
 - Mapped candidates cannot post until review and approval; organization-scoped economic-event uniqueness prevents a second source from posting the same event.
-- A 25 MiB default limit is enforced. Malware scanning and permitted MIME policy must be selected before production activation.
+- A 25 MiB default limit and PDF/PNG/JPEG allowlist are enforced before scanning. Extraction can run only after a configured scanner returns a clean result with provider/version/time provenance and the extraction hash matches the scanned document. The production scanner and extractor still require approval.
 
 ## Secrets and logging
 
@@ -24,6 +24,13 @@ RLS helper functions are `security definer`, live outside the exposed schemas, p
 - Cloudflare deployment declares required secrets and uses encrypted Worker secrets. Public Supabase URL and anonymous key are build configuration, not privileged credentials.
 - Logs are structured and must contain request id, service, operation, duration, result, and non-sensitive entity ids. Never log access tokens, connector credentials, document content, raw import rows, contact email, or financial evidence payloads.
 - Audit events are append-only and separate from operational logs.
+
+## Browser and provider boundaries
+
+- Worker responses set CSP, frame denial, MIME sniffing denial, opener/resource isolation, referrer and permissions policies, HSTS on HTTPS, request correlation, and `no-store` for HTML, API, and error responses.
+- The CSP admits only the application origin, the configured HTTPS/WSS Supabase origin, data/blob image needs, and the local development websocket. TanStack hydration currently requires inline script/style allowance; removing that requires a request nonce propagated through the framework renderer.
+- REST connectors never follow redirects, reject endpoint-embedded credentials and unsafe transport headers, and enforce byte/record/time/retry limits before mapping.
+- Notification destinations are resolved from identity at delivery time. Outbox template data rejects destination and credential fields, while delivery results omit addresses and provider error text.
 
 ## Pending production decisions
 

@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { applySecurityHeaders, resolveRequestId } from "./server/security-headers.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -44,27 +45,18 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
-function secureResponse(response: Response, request: Request, requestId: string): Response {
-  const headers = new Headers(response.headers);
-  headers.set("x-content-type-options", "nosniff");
-  headers.set("x-frame-options", "DENY");
-  headers.set("referrer-policy", "strict-origin-when-cross-origin");
-  headers.set("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=()");
-  headers.set("x-request-id", requestId);
-  if (new URL(request.url).protocol === "https:") {
-    headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
-  }
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+function supabaseUrlFrom(environment: unknown): string | undefined {
+  if (!environment || typeof environment !== "object") return undefined;
+  const value = (environment as Readonly<Record<string, unknown>>).VITE_SUPABASE_URL;
+  return typeof value === "string" ? value : undefined;
 }
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     const startedAt = performance.now();
-    const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+    const requestId = resolveRequestId(request.headers.get("x-request-id"), () =>
+      crypto.randomUUID(),
+    );
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
@@ -77,7 +69,12 @@ export default {
         status: normalized.status,
         durationMs: Math.round(performance.now() - startedAt),
       });
-      return secureResponse(normalized, request, requestId);
+      return applySecurityHeaders({
+        response: normalized,
+        request,
+        requestId,
+        supabaseUrl: supabaseUrlFrom(env),
+      });
     } catch (error) {
       console.error({
         event: "request_failed",
@@ -86,14 +83,15 @@ export default {
         path: new URL(request.url).pathname,
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
-      return secureResponse(
-        new Response(renderErrorPage(), {
+      return applySecurityHeaders({
+        response: new Response(renderErrorPage(), {
           status: 500,
           headers: { "content-type": "text/html; charset=utf-8" },
         }),
         request,
         requestId,
-      );
+        supabaseUrl: supabaseUrlFrom(env),
+      });
     }
   },
 };

@@ -64,6 +64,19 @@ export interface RecoveryResult {
   lines: readonly RecoveryLine[];
 }
 
+export interface RecoveryCalculationInput {
+  terms: AccrualTerms;
+  policy: RecoveryPolicy;
+  ratePeriods: readonly RecoveryRatePeriod[];
+  volumeEvents: readonly VolumeEvent[];
+}
+
+export interface RecoveryReplay {
+  inputHash: string;
+  calculatedAt: string;
+  result: RecoveryResult;
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function decimal(value: string, field: string): Decimal {
@@ -173,12 +186,7 @@ function selectRate(eventDate: string, periods: readonly RecoveryRatePeriod[]): 
   return matches[0] as RecoveryRatePeriod;
 }
 
-export function calculateRecovery(input: {
-  terms: AccrualTerms;
-  policy: RecoveryPolicy;
-  ratePeriods: readonly RecoveryRatePeriod[];
-  volumeEvents: readonly VolumeEvent[];
-}): RecoveryResult {
+export function calculateRecovery(input: RecoveryCalculationInput): RecoveryResult {
   const policy = validateRecoveryPolicy(input.policy);
   const rates = validateRatePeriods(input.ratePeriods);
   invariant(input.terms.organizationId.trim() !== "", "Organization is required", "invalid_terms");
@@ -193,7 +201,11 @@ export function calculateRecovery(input: {
   const seenEventIds = new Set<string>();
   const lines: RecoveryLine[] = [];
 
-  for (const event of input.volumeEvents) {
+  const orderedEvents = [...input.volumeEvents].sort(
+    (left, right) =>
+      left.occurredOn.localeCompare(right.occurredOn) || left.id.localeCompare(right.id),
+  );
+  for (const event of orderedEvents) {
     invariant(
       event.organizationId === input.terms.organizationId,
       "Cross-tenant volume event rejected",
@@ -244,6 +256,57 @@ export function calculateRecovery(input: {
     underRecovery: normalize(underRecovery),
     overRecovery: normalize(overRecovery),
     lines: Object.freeze(lines),
+  });
+}
+
+function canonicalRecoveryInput(input: RecoveryCalculationInput): RecoveryCalculationInput {
+  return {
+    terms: { ...input.terms },
+    policy: {
+      ...input.policy,
+      eligibleEventTypes: [...new Set(input.policy.eligibleEventTypes)].sort(),
+    },
+    ratePeriods: [...input.ratePeriods].sort(
+      (left, right) =>
+        left.effectiveFrom.localeCompare(right.effectiveFrom) || left.id.localeCompare(right.id),
+    ),
+    volumeEvents: [...input.volumeEvents].sort(
+      (left, right) =>
+        left.occurredOn.localeCompare(right.occurredOn) || left.id.localeCompare(right.id),
+    ),
+  };
+}
+
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  const entries = Object.entries(value as Readonly<Record<string, unknown>>)
+    .filter(([, item]) => item !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(",")}}`;
+}
+
+export async function createRecoveryReplay(
+  input: RecoveryCalculationInput,
+  calculatedAt: string,
+): Promise<RecoveryReplay> {
+  invariant(
+    !Number.isNaN(Date.parse(calculatedAt)),
+    "Calculation timestamp is invalid",
+    "invalid_calculation_timestamp",
+  );
+  const canonical = canonicalRecoveryInput(input);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(stableJson(canonical)),
+  );
+  const inputHash = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return Object.freeze({
+    inputHash,
+    calculatedAt,
+    result: calculateRecovery(canonical),
   });
 }
 

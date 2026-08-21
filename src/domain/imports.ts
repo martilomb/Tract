@@ -42,6 +42,25 @@ export interface StagedVehicleVolumeRow {
   };
 }
 
+export type ImportRunStatus =
+  "uploaded" | "staged" | "validated" | "committed" | "failed" | "cancelled";
+
+export interface ImportRunControl {
+  id: string;
+  status: ImportRunStatus;
+  attempt: number;
+  failureReason?: string;
+}
+
+export interface ImportCommitPlan {
+  totalRows: number;
+  validRows: number;
+  rejectedRows: number;
+  partial: boolean;
+  committableRowNumbers: readonly number[];
+  rejected: readonly { rowNumber: number; errors: readonly string[] }[];
+}
+
 export function parseCsv(input: string): readonly Readonly<Record<string, string>>[] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -160,6 +179,86 @@ export function stageVehicleVolumeRows(
         : undefined,
     });
   });
+}
+
+export function planImportCommit(input: {
+  rows: readonly StagedVehicleVolumeRow[];
+  allowPartial: boolean;
+  actorCanApprovePartial: boolean;
+}): ImportCommitPlan {
+  invariant(input.rows.length > 0, "Import has no staged rows", "empty_import");
+  const valid = input.rows.filter((row) => row.valid);
+  const rejected = input.rows.filter((row) => !row.valid);
+  invariant(valid.length > 0, "Import has no valid rows to commit", "import_no_valid_rows");
+  if (rejected.length > 0) {
+    invariant(input.allowPartial, "Import contains rejected rows", "import_partial_not_allowed", {
+      rejectedRows: rejected.length,
+    });
+    invariant(
+      input.actorCanApprovePartial,
+      "Partial import approval permission is required",
+      "import_partial_approval_denied",
+    );
+  }
+  return Object.freeze({
+    totalRows: input.rows.length,
+    validRows: valid.length,
+    rejectedRows: rejected.length,
+    partial: rejected.length > 0,
+    committableRowNumbers: Object.freeze(valid.map((row) => row.rowNumber)),
+    rejected: Object.freeze(
+      rejected.map((row) =>
+        Object.freeze({ rowNumber: row.rowNumber, errors: Object.freeze([...row.errors]) }),
+      ),
+    ),
+  });
+}
+
+export function failImportRun(run: ImportRunControl, failureReason: string): ImportRunControl {
+  invariant(
+    !["committed", "cancelled"].includes(run.status),
+    "A terminal import cannot fail",
+    "import_terminal",
+  );
+  invariant(
+    failureReason.trim() !== "",
+    "Import failure reason is required",
+    "import_reason_required",
+  );
+  return Object.freeze({ ...run, status: "failed", failureReason });
+}
+
+export function retryImportRun(run: ImportRunControl): ImportRunControl {
+  invariant(run.status === "failed", "Only a failed import can be retried", "import_retry_denied");
+  invariant(
+    Number.isInteger(run.attempt) && run.attempt > 0,
+    "Import attempt is invalid",
+    "invalid_import_attempt",
+  );
+  return Object.freeze({ id: run.id, status: "staged", attempt: run.attempt + 1 });
+}
+
+export function cancelImportRun(input: {
+  run: ImportRunControl;
+  reason: string;
+  actorCanCancel: boolean;
+}): ImportRunControl {
+  invariant(
+    input.actorCanCancel,
+    "Import cancellation permission is required",
+    "import_cancel_denied",
+  );
+  invariant(
+    !["committed", "cancelled"].includes(input.run.status),
+    "A terminal import cannot be cancelled",
+    "import_terminal",
+  );
+  invariant(
+    input.reason.trim() !== "",
+    "Import cancellation reason is required",
+    "import_reason_required",
+  );
+  return Object.freeze({ ...input.run, status: "cancelled", failureReason: input.reason });
 }
 
 export async function importFingerprint(input: {

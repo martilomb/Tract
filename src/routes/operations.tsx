@@ -15,8 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DeterministicDevelopmentExtractor, type ExtractionResult } from "@/domain/documents";
+import {
+  approveExtraction,
+  buildDocumentPostingPlan,
+  DeterministicDevelopmentExtractor,
+  type ExtractionResult,
+} from "@/domain/documents";
 import { parseCsv, stageVehicleVolumeRows, type StagedVehicleVolumeRow } from "@/domain/imports";
 
 export const Route = createFileRoute("/operations")({ component: OperationsPage });
@@ -55,6 +61,25 @@ const ingestionLifecycle = [
   "Posted",
 ] as const;
 
+const documentFieldLabels: Readonly<Record<string, string>> = {
+  contract_number: "Contract number",
+  recovery_rate: "Recovery rate",
+  effective_date: "Effective date",
+};
+
+const documentMappings = {
+  contract_number: { entityType: "contract" as const, targetField: "contract_number" },
+  recovery_rate: { entityType: "recovery_rate" as const, targetField: "per_unit_rate" },
+  effective_date: { entityType: "contract" as const, targetField: "effective_from" },
+};
+
+interface ReviewDraft {
+  value: string;
+  page: string;
+  evidence: string;
+  reason: string;
+}
+
 const adapters = [
   {
     name: "CSV staging",
@@ -89,6 +114,8 @@ function OperationsPage() {
   const [csv, setCsv] = useState(SAMPLE_CSV);
   const [staged, setStaged] = useState<readonly StagedVehicleVolumeRow[]>([]);
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
+  const [reviewDrafts, setReviewDrafts] = useState<Readonly<Record<string, ReviewDraft>>>({});
+  const [postingCount, setPostingCount] = useState<number | null>(null);
 
   const stage = () => {
     try {
@@ -122,6 +149,10 @@ function OperationsPage() {
 
   const inspectDocument = async (file: File | undefined) => {
     if (!file) return;
+    if (!["application/pdf", "image/png", "image/jpeg"].includes(file.type)) {
+      toast.error("Choose a PDF, PNG, or JPEG document.");
+      return;
+    }
     if (file.size > 25 * 1024 * 1024) {
       toast.error("The development document limit is 25 MiB.");
       return;
@@ -137,9 +168,92 @@ function OperationsPage() {
       configuredFields: ["contract_number", "recovery_rate", "effective_date"],
     });
     setExtraction(result);
+    setReviewDrafts(
+      Object.fromEntries(
+        result.fields.map((field) => [
+          field.key,
+          { value: field.value, page: "", evidence: "", reason: "" },
+        ]),
+      ),
+    );
+    setPostingCount(null);
     toast.info("Document registered with the deterministic adapter", {
       description: "No file was uploaded and no external model was called.",
     });
+  };
+
+  const updateReviewDraft = (fieldKey: string, change: Partial<ReviewDraft>) => {
+    setReviewDrafts((current) => ({
+      ...current,
+      [fieldKey]: {
+        ...(current[fieldKey] ?? { value: "", page: "", evidence: "", reason: "" }),
+        ...change,
+      },
+    }));
+    setPostingCount(null);
+  };
+
+  const loadReviewExample = () => {
+    if (!extraction) return;
+    const examples: Readonly<Record<string, { value: string; evidence: string }>> = {
+      contract_number: { value: "CTR-2026-001", evidence: "Contract no. CTR-2026-001" },
+      recovery_rate: { value: "0.125", evidence: "Recovery rate: 0.125 per eligible unit" },
+      effective_date: { value: "2026-08-01", evidence: "Effective from 1 August 2026" },
+    };
+    setReviewDrafts(
+      Object.fromEntries(
+        extraction.fields.map((field) => [
+          field.key,
+          {
+            value: examples[field.key]?.value ?? "Reviewed value",
+            page: "1",
+            evidence: examples[field.key]?.evidence ?? "Reviewed source excerpt",
+            reason: "Deterministic local review example",
+          },
+        ]),
+      ),
+    );
+    setPostingCount(null);
+    toast.info("Synthetic review example loaded", {
+      description: "Values are local test data and are not extracted from the selected file.",
+    });
+  };
+
+  const approveReview = () => {
+    if (!extraction) return;
+    try {
+      const corrections = Object.fromEntries(
+        extraction.fields.map((field) => [field.key, reviewDrafts[field.key]?.value ?? ""]),
+      );
+      const correctionEvidence = Object.fromEntries(
+        extraction.fields.map((field) => {
+          const draft = reviewDrafts[field.key];
+          return [
+            field.key,
+            {
+              page: Number(draft?.page),
+              text: draft?.evidence ?? "",
+              reason: draft?.reason ?? "",
+            },
+          ];
+        }),
+      );
+      const approval = approveExtraction({
+        result: extraction,
+        corrections,
+        correctionEvidence,
+        requiredFields: extraction.fields.map((field) => field.key),
+        reviewerId: "development-reviewer",
+        reviewedAt: new Date().toISOString(),
+      });
+      const postingPlan = buildDocumentPostingPlan({ approval, mappings: documentMappings });
+      setPostingCount(postingPlan.length);
+      toast.success("Local review approved", {
+        description: `${postingPlan.length} controlled posting actions planned; nothing committed.`,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Document review failed");
+    }
   };
 
   return (
@@ -252,9 +366,12 @@ function OperationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <Label htmlFor="document-review-file">Document for local review</Label>
             <Input
+              id="document-review-file"
               type="file"
               accept="application/pdf,image/png,image/jpeg"
+              className="mt-2"
               onChange={(event) => void inspectDocument(event.target.files?.[0])}
             />
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -267,14 +384,75 @@ function OperationsPage() {
                   SHA-256 {extraction.documentSha256}
                 </div>
                 {extraction.fields.map((field) => (
-                  <div
-                    key={field.key}
-                    className="flex items-center justify-between rounded-lg border p-3 text-sm"
-                  >
-                    <span>{field.key}</span>
-                    <Badge variant="outline">manual review required</Badge>
-                  </div>
+                  <fieldset key={field.key} className="space-y-3 rounded-lg border p-3">
+                    <legend className="px-1 text-sm font-medium">
+                      {documentFieldLabels[field.key] ?? field.key}
+                    </legend>
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_90px]">
+                      <div>
+                        <Label htmlFor={`${field.key}-value`}>Reviewed value</Label>
+                        <Input
+                          id={`${field.key}-value`}
+                          className="mt-1"
+                          value={reviewDrafts[field.key]?.value ?? ""}
+                          onChange={(event) =>
+                            updateReviewDraft(field.key, { value: event.target.value })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`${field.key}-page`}>Page</Label>
+                        <Input
+                          id={`${field.key}-page`}
+                          className="mt-1"
+                          type="number"
+                          min="1"
+                          inputMode="numeric"
+                          value={reviewDrafts[field.key]?.page ?? ""}
+                          onChange={(event) =>
+                            updateReviewDraft(field.key, { page: event.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor={`${field.key}-evidence`}>Source evidence excerpt</Label>
+                      <Textarea
+                        id={`${field.key}-evidence`}
+                        className="mt-1 min-h-16 text-xs"
+                        value={reviewDrafts[field.key]?.evidence ?? ""}
+                        onChange={(event) =>
+                          updateReviewDraft(field.key, { evidence: event.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`${field.key}-reason`}>Correction reason</Label>
+                      <Input
+                        id={`${field.key}-reason`}
+                        className="mt-1"
+                        value={reviewDrafts[field.key]?.reason ?? ""}
+                        onChange={(event) =>
+                          updateReviewDraft(field.key, { reason: event.target.value })
+                        }
+                      />
+                    </div>
+                  </fieldset>
                 ))}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button size="sm" variant="outline" onClick={loadReviewExample}>
+                    Load synthetic review example
+                  </Button>
+                  <Button size="sm" onClick={approveReview}>
+                    Approve local review
+                  </Button>
+                </div>
+                {postingCount !== null && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                    Review approved and {postingCount} posting actions planned locally. No canonical
+                    record was written.
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

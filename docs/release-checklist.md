@@ -8,8 +8,8 @@
 - [ ] Generated database types are committed and server queries use them.
 - [ ] Authentication, invitation, password reset, MFA policy, session expiry, and multi-organization switching pass browser tests.
 - [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass.
-- [ ] Calculation replay produces the same input hash, lines, exact values, and policy version.
-- [ ] Import duplicate, partial failure, retry, cancellation, and reconciliation pass.
+- [x] Calculation replay produces the same input hash, lines, exact values, and policy version in local contract tests.
+- [x] Import duplicate, partial failure, retry, cancellation, and reconciliation pass in local contract tests.
 - [ ] IHS/AFS and SAP/ERP adapters remain disabled until provider documentation, licensing where applicable, approved samples, mappings, credentials, and reconciliation thresholds are recorded.
 - [ ] Raw-source retention, mapping-version replay, missing-mapping/conflict/material-revision exceptions, review/approval permissions, and duplicate economic-event posting denial pass.
 - [ ] Document text/table extraction, page/table evidence, confidence/warnings, corrections, human approval, and controlled canonical postings pass with the approved scanner/extractor.
