@@ -3,6 +3,7 @@
 - [ ] Product owner supplies or approves the Git remote; no remote is connected yet.
 - [x] Local `pnpm install --frozen-lockfile` and `pnpm check` pass.
 - [x] Dependency review has no known production vulnerabilities.
+- [x] Static migration contract tests pass for ordering, transactions, RLS coverage, security-definer search paths, critical immutable/posting guards, and credential-shaped text.
 - [ ] Supabase migrations apply cleanly to a fresh local database.
 - [ ] `supabase db lint` and `supabase test db` pass, including anonymous and cross-tenant denial.
 - [ ] Generated database types are committed and server queries use them.
@@ -14,8 +15,9 @@
 - [ ] Raw-source retention, mapping-version replay, missing-mapping/conflict/material-revision exceptions, review/approval permissions, and duplicate economic-event posting denial pass.
 - [ ] Document text/table extraction, page/table evidence, confidence/warnings, corrections, human approval, and controlled canonical postings pass with the approved scanner/extractor.
 - [ ] Each accrual's eligible-volume basis and any parts-per-vehicle, take-rate, and allocation rules are contract-approved and effective-dated; vehicle-production totals cannot post directly as part volume.
-- [ ] Full keyboard, screen-reader, contrast, and supported-browser certification passes; the 390 x 844 responsive shell and primary navigation have passed locally.
+- [ ] Full manual keyboard, screen-reader, and supported-browser certification passes; local semantic control labelling, main-content AA contrast sampling, nine-route desktop smoke, and the 390 x 844 responsive shell/primary navigation have passed.
 - [ ] Backup restore evidence satisfies the approved RPO/RTO.
 - [ ] Structured logs, alerts, incident ownership, spend limits, and retention are configured.
 - [x] Production builds fail closed when the required connection is absent; demonstration mode requires an explicit build-time flag and is visibly labelled.
+- [x] The generated Worker uses the hardened custom server entry; live local responses include correlation, CSP/isolation/frame/referrer/permissions/cache controls and structured request events.
 - [x] No unsupported integration, compliance, accounting, or predictive claim is presented as an active capability.

@@ -205,9 +205,12 @@ export function AppShell({
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
               <Bell className="h-4 w-4" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
+              <span
+                className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive"
+                aria-hidden
+              />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

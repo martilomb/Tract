@@ -6,6 +6,8 @@
 
 Alert on sustained 5xx rate, repeated authorization denial spikes, failed calculation/import/extraction jobs, ingestion batches stalled in one lifecycle state, open material revisions/source conflicts, reconciliation count differences, duplicate-posting attempts, outbox retry exhaustion, and database/storage quota thresholds. Preserve request ids across Worker, Supabase, connector, and outbox operations.
 
+REST connectors and notification delivery use server-only adapters. Connector results exclude credential material; notification destinations are resolved at delivery and excluded from receipts. Alert on final retry exhaustion and retain only sanitized failure codes in ordinary logs. Provider-specific dashboards and delivery routes remain activation inputs.
+
 ## Backup and recovery
 
 Before production activation:

@@ -147,18 +147,8 @@ function OperationsPage() {
     }
   };
 
-  const inspectDocument = async (file: File | undefined) => {
-    if (!file) return;
-    if (!["application/pdf", "image/png", "image/jpeg"].includes(file.type)) {
-      toast.error("Choose a PDF, PNG, or JPEG document.");
-      return;
-    }
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error("The development document limit is 25 MiB.");
-      return;
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const hashBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const beginDocumentReview = async (bytes: Uint8Array) => {
+    const hashBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
     const sha256 = [...hashBytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
     const adapter = new DeterministicDevelopmentExtractor();
     const result = await adapter.extract({
@@ -181,6 +171,22 @@ function OperationsPage() {
       description: "No file was uploaded and no external model was called.",
     });
   };
+
+  const inspectDocument = async (file: File | undefined) => {
+    if (!file) return;
+    if (!["application/pdf", "image/png", "image/jpeg"].includes(file.type)) {
+      toast.error("Choose a PDF, PNG, or JPEG document.");
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("The development document limit is 25 MiB.");
+      return;
+    }
+    await beginDocumentReview(new Uint8Array(await file.arrayBuffer()));
+  };
+
+  const startSyntheticDocumentReview = () =>
+    void beginDocumentReview(new TextEncoder().encode("synthetic local contract review fixture"));
 
   const updateReviewDraft = (fieldKey: string, change: Partial<ReviewDraft>) => {
     setReviewDrafts((current) => ({
@@ -378,6 +384,16 @@ function OperationsPage() {
               The deterministic adapter creates configured empty fields for manual review. It does
               not read content, upload data, or make an external request.
             </div>
+            {!extraction && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={startSyntheticDocumentReview}
+              >
+                Start synthetic document review
+              </Button>
+            )}
             {extraction && (
               <div className="mt-4 space-y-3">
                 <div className="break-all font-mono text-[10px] text-muted-foreground">
