@@ -1,5 +1,15 @@
 # Assumptions and unresolved decisions
 
+## Confirmed product model and terminology
+
+- Programs, part numbers/revisions, DCRs, and contracts/recovery agreements are separate canonical records with separate creation workflows.
+- Contracts have a dedicated navigation area because one agreement may govern multiple programs, model years, parts, and DCRs. Other pages link to the canonical agreement rather than duplicating contract creation.
+- A DCR may be drafted before a contract exists. Configured evidence and approvals gate later DCR transitions, and an approved recovery agreement is required before recovery activation or accounting posting.
+- A redesigned part is introduced through a DCR and a new part number or effective-dated revision under the existing program unless a genuinely new vehicle program/carline is being created.
+- IHS/AFS vehicle identifiers and customer master-data mappings are selected from governed mappings rather than repeatedly entered as uncontrolled free text.
+- “Disposition” means accounting treatment of an over-recovered balance, not a legal deposition. Plain-language user interfaces use “Accounting treatment” or “Over-recovery decision.”
+- A vehicle program may contain parts from many commodities. Commodity behavior is based on explicit part relationships, not a synthetic one-commodity-per-program assignment.
+
 ## Implemented defaults
 
 - The approved recovery formula, signed-event corrections, effective-dated rates, exact decimals, one settlement currency per accrual, and boundary-only rounding are implemented as policy version 1.

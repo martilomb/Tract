@@ -10,21 +10,96 @@
 
 ## Requirements traceability
 
-| Area                                    | Delivery status                                                        | Source-supported outcome                                                                                                                                                                                                                                                         |
-| --------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Recovery accounting                     | Implemented; staging schema/DB validation passed                       | Recoverable cost, rate periods/effective dates, precise decimals, contract/accrual-specific eligible-volume basis, recovered/remaining/percent/completion/variance, provenance, revisions, reproducible rules, drill-down, exceptions, reports, filters, exports, audit history. |
-| DCR/accrual workflow                    | Implemented; staging persistence schema passed; Auth flow pending      | Auto initiator/date, duplicate-aware DCR number, component, multiple parts/programs, supplier contacts, ED&T, piece-price impact, volume, comments, attachments, status, assignments, history, notifications, and entity links.                                                  |
-| Documents                               | Private Storage boundary passed; scanner/end-to-end flow pending       | Contract/DCR/engineering/tooling/amortization documents, private originals, versioned extraction of text/tables and candidate fields, page/table evidence, confidence/warnings, corrections, human approval, controlled canonical-record postings, replaceable provider.         |
-| Vehicle-volume ingestion                | Local framework/runtime implemented; IHS/AFS access pending            | IHS, AFS, or both through replaceable file/API adapters; actual/forecast/revised/scenario kinds; OEM/program/model/plant/region/part mapping; effective part quantity/take-rate/allocation; immutable forecast versions; reconciliation and exceptions.                          |
-| SAP and ERP ingestion                   | Local contract/runtime implemented; SAP specification pending          | Customer-specific declarative file/API mappings for shipments, transactions, available costs, corrections/reversals/returns, original values/currencies/fields/timestamps, credentials, schedules, retries, idempotency, reconciliation, history, and monitoring.                |
-| Shared ingestion controls               | Implemented; staging database/RLS validation passed                    | Immutable source objects/raw rows separated from normalized candidates; Received→Staged→Validated→Mapped→Reviewed→Approved→Posted; rejected/failed traceability; duplicate economic-event prevention; no executable mappings.                                                    |
-| Identity and authorization              | Staging schema/RLS passed; hosted Auth flows and SSO pending           | Authentication, tenant isolation, database/server enforcement, admin/full-view plus part/program/department/technical-team scopes, combinations, permission audit.                                                                                                               |
-| Enterprise UX                           | Local responsive/browser/contrast gates pass; hosted workflows pending | Persisted production-shaped workflows; accessible responsive experience; explicit empty/loading/success/validation/denied/failure states.                                                                                                                                        |
-| Forecasting                             | Implemented locally at confirmed capability level                      | Versioned forecasts, provenance, completion projections, and exception reporting. A specific ML model, MAPE target, nightly training, SAAR/dealer signals, and predictive narrative are not yet confirmed.                                                                       |
-| Claims/profit release                   | Unconfirmed and disabled                                               | Prototype includes claim packs, contractual clawback windows, over-recovery release, and Finance VP approval. Accounting semantics and approval stages require confirmation before implementation.                                                                               |
-| SOX compliance                          | Audit-ready controls only; no compliance claim                         | Materials promote SOX reporting/risk reduction. Build audit-ready controls, but do not claim certification or compliance without defined controls and customer validation.                                                                                                       |
-| Blockchain and multi-industry expansion | Excluded as unsupported                                                | Do not implement in the confirmed delivery scope.                                                                                                                                                                                                                                |
-| Volume data provider                    | Provider-neutral seam implemented; live providers disabled             | IHS, AFS, or both are supported behind one provider-neutral contract. No live provider is claimed until documentation, licensing, approved samples, and credentials are supplied.                                                                                                |
+| Area                                    | Delivery status                                                      | Source-supported outcome                                                                                                                                                                                                                                                         |
+| --------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recovery accounting                     | Implemented; staging schema/DB validation passed                     | Recoverable cost, rate periods/effective dates, precise decimals, contract/accrual-specific eligible-volume basis, recovered/remaining/percent/completion/variance, provenance, revisions, reproducible rules, drill-down, exceptions, reports, filters, exports, audit history. |
+| DCR workflow                            | Core state machine implemented; product-owner UX correction planned  | A left-to-right change-request pipeline, evidence-gated transitions, affected programs/model years/parts, attachments, reviewers, comments, approval history, search, filters, and direct links to related agreements without requiring a contract to open a draft.              |
+| Contracts and recovery agreements       | Data foundations implemented; dedicated product workflow planned     | A separate Contracts navigation area for private originals, versions, extraction review, terms, suppliers, linked DCRs/programs/model years/parts, eligible-volume basis, rate periods, approval, activation, expiry, supersession, and audit history.                           |
+| Master-data boundaries                  | Schema foundations implemented; creation UX must be separated        | Vehicle programs, part numbers/revisions, DCRs, and recovery agreements are distinct records and workflows. A redesigned part creates a DCR and effective-dated part revision; a new program is created only for a genuinely new vehicle program/carline.                        |
+| Documents                               | Private Storage boundary passed; scanner/end-to-end flow pending     | Contract/DCR/engineering/tooling/amortization documents, private originals, versioned extraction of text/tables and candidate fields, page/table evidence, confidence/warnings, corrections, human approval, controlled canonical-record postings, replaceable provider.         |
+| Vehicle-volume ingestion                | Local framework/runtime implemented; IHS/AFS access pending          | IHS, AFS, or both through replaceable file/API adapters; actual/forecast/revised/scenario kinds; OEM/program/model/plant/region/part mapping; effective part quantity/take-rate/allocation; immutable forecast versions; reconciliation and exceptions.                          |
+| SAP and ERP ingestion                   | Local contract/runtime implemented; SAP specification pending        | Customer-specific declarative file/API mappings for shipments, transactions, available costs, corrections/reversals/returns, original values/currencies/fields/timestamps, credentials, schedules, retries, idempotency, reconciliation, history, and monitoring.                |
+| Shared ingestion controls               | Implemented; staging database/RLS validation passed                  | Immutable source objects/raw rows separated from normalized candidates; Received→Staged→Validated→Mapped→Reviewed→Approved→Posted; rejected/failed traceability; duplicate economic-event prevention; no executable mappings.                                                    |
+| Identity and authorization              | Staging schema/RLS passed; hosted Auth flows and SSO pending         | Authentication, tenant isolation, database/server enforcement, admin/full-view plus part/program/department/technical-team scopes, combinations, permission audit.                                                                                                               |
+| Enterprise UX                           | Product-owner review opened Milestone 10                             | Plain-language workflows, functional-or-disabled controls, hierarchical selectors, sortable/filterable/paginated data, direct record drill-downs, responsive layouts, and explicit empty/loading/success/validation/denied/failure states.                                       |
+| Forecasting                             | Calculation view implemented; selection and scale correction planned | Versioned forecasts, provenance, completion projections, and exception reporting with searchable OEM → program/model → model-year selection. A specific ML model, MAPE target, nightly training, SAAR/dealer signals, and predictive narrative are not yet confirmed.            |
+| Claims/profit release                   | Unconfirmed and disabled                                             | Prototype includes claim packs, contractual clawback windows, over-recovery release, and Finance VP approval. Accounting semantics and approval stages require confirmation before implementation.                                                                               |
+| SOX compliance                          | Audit-ready controls only; no compliance claim                       | Materials promote SOX reporting/risk reduction. Build audit-ready controls, but do not claim certification or compliance without defined controls and customer validation.                                                                                                       |
+| Blockchain and multi-industry expansion | Excluded as unsupported                                              | Do not implement in the confirmed delivery scope.                                                                                                                                                                                                                                |
+| Volume data provider                    | Provider-neutral seam implemented; live providers disabled           | IHS, AFS, or both are supported behind one provider-neutral contract. No live provider is claimed until documentation, licensing, approved samples, and credentials are supplied.                                                                                                |
+
+## Product-owner review: enterprise workflow correction
+
+The 24 August 2026 demonstration review confirmed that the visual foundation is useful but that several screens expose implementation concepts, conflate business records, or present non-functional controls. The following decisions are approved scope, not optional polish.
+
+### Plain-language product model
+
+| Concept                        | Meaning and intended behavior                                                                                                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vehicle program                | The OEM vehicle/carline record, including platform, model years, plants/regions, and mapped IHS/AFS identifiers. Creating one must not also create a part, DCR, or financial recovery.                                          |
+| Part number or revision        | A component assigned to applicable programs and model years. A redesign is handled through a DCR and then a new part number or effective-dated revision; historical parts are never overwritten.                                |
+| Design Change Request (DCR)    | The proposal, evidence, review, and approval workflow for a change. A DCR may begin before commercial terms are signed, but required evidence must gate approval and activation.                                                |
+| Contract or recovery agreement | The contractual authority for recoverable cost, per-unit rates, effective dates, eligible-volume basis, and linked programs/parts/DCRs. An approved agreement is required before recovery can become active or post accounting. |
+| Ingestion lifecycle            | Received → Staged → Validated → Mapped → Reviewed → Approved → Posted is the controlled path that prevents unverified source data from affecting calculations. Each stage must expose records, issues, evidence, and actions.   |
+| Accounting disposition         | The approved treatment of an over-recovered balance. It is not a legal deposition. User-facing language should say “Accounting treatment” or “Over-recovery decision” unless a customer explicitly prefers the technical term.  |
+
+### Add
+
+- A dedicated **Contracts** navigation item and **Recovery Agreements and Contracts** workspace.
+- A contract wizard: upload original → extract candidates → review evidence → link supplier/DCR/program/model year/part → confirm recovery and volume rules → approve and activate.
+- Contract search, filters, statuses, version history, original documents, extracted evidence, linked records, approval history, expiry, and supersession.
+- Read-only linked-contract summaries on Program, Part, and DCR pages, with “Link existing contract” and context-preserving “Create contract” actions.
+- Searchable hierarchical OEM → program/model → model-year selectors, with an additional part selector wherever part-level analysis is relevant.
+- Three-state sortable table headings, record counts, pagination or virtualization, and filters appropriate to each high-volume table.
+- OEM, program, model-year, and part drill-downs showing actual, expected, forecast, variance, break-even, provenance, and underlying calculation/evidence links.
+- Functional Profile and Organization pages. Add API-key management only if an external Tract API is confirmed; otherwise remove the menu item.
+- Plain-language help text, tooltips, empty states, and “why this matters” explanations for operational and accounting concepts.
+
+### Change
+
+- Replace the combined “New program from DCR” form with separate Create Program, Create Part/Revision, Create DCR, and Create Recovery Agreement workflows.
+- Present DCRs as a left-to-right pipeline with a selected-record evidence panel, required-field/attachment/approval gates, search, filters, assignments, comments, and filterable history.
+- Move primary document upload and extraction review into Contracts; retain Operations as the cross-workspace exception/review queue.
+- Turn Connector Registry into an administrator wizard for approved file/API providers, mappings, schedules, credential references, tests, health, retries, reconciliation, disablement, and audit history.
+- Rename Versioned Configuration to **Rules and Policies** and expose understandable effective dates, versions, owners, approval state, and change history.
+- Make every ingestion lifecycle stage selectable and explain what entered, failed, changed, awaits approval, and posted.
+- Replace long Forecast and Overview program lists with searchable hierarchical selectors; preserve the selection in URLs where practical.
+- Recompose Recoveries into filterable summaries and bounded tables instead of multiple full-book lists on one page. Use available horizontal space for charts and detail, not empty columns.
+- Add sorting and filtering to Part Numbers and Overview Active Programs; expand part details with a time-series projection and variance/evidence breakdown.
+- Make OEM, program, and model-year cards open progressively deeper recovery views, including aggregate OEM net position and distribution of over/under-recovering programs.
+- Replace synthetic commodity-to-program assignment with explicit part-to-commodity relationships. A program may contain many commodities; filters must mean “records containing matching parts,” not exclusive assignment.
+- Keep Overview charts data-driven and traceable to calculation inputs. Correct clipped labels and reset or simplify animation when the selected record changes.
+- Rename Scenario Exceptions to **Forecast risks and variances** and link each item directly to its program, calculation, cause, threshold, and evidence.
+- Rename disposition-facing copy to plain-language accounting-treatment terms and link each balance to its decision/review workflow.
+- Define the initial report catalog: recovery position by OEM/program/model year/part, actual-versus-contract/forecast, under/over-recovery exceptions, DCR status/aging, ingestion reconciliation, and audit/evidence packages. Claims remain disabled until approved rules exist.
+
+### Remove or disable
+
+- Remove unverified vehicle silhouettes and other imagery that does not match the actual OEM/model. Use approved OEM assets or a consistent text mark.
+- Remove the existing conflated program/DCR/part/accrual creation path after its replacements are available.
+- Remove dead navigation and menu actions. During transition, render unavailable actions as disabled with a reason rather than allowing no-op clicks.
+- Remove the API Keys menu item unless Tract exposes a confirmed customer API with scoped, expiring, rotatable credentials and audit history.
+- Remove unsupported legal, claim, profit-release, or accounting-action implications. Do not imply a balance has an approved treatment when it is merely awaiting review.
+- Remove the global commodity control from screens where it cannot produce semantically valid results; use page-level or global filtering only after real relationships support it.
+
+### Retain
+
+- Tract branding, responsive shell, Overview hierarchy, existing chart visual language, recovery status vocabulary, audit history, and fail-closed demonstration banner.
+- Part Numbers search, advanced filters, status chips, CSV export, and existing basic part detail as the foundation for the richer drill-down.
+- Settings structure, Operations safety controls, immutable ingestion lifecycle, evidence-backed document review, recovery precision, RLS, and auditability.
+- Reports as a product area, but only with clearly defined, data-backed report types and scoped exports.
+
+### Milestone 10 acceptance
+
+- A user can distinguish and independently create a program, part/revision, DCR, and contract without duplicate or contradictory data entry.
+- A contract can cover multiple programs, model years, parts, and DCRs; related pages link to the same canonical agreement and version.
+- No DCR can advance through a gated transition without its configured evidence, reviewer, and approval requirements; a contract is not required merely to save a DCR draft.
+- High-volume selectors and tables remain usable with at least 200 programs and 17,000 parts through search, hierarchy, sorting, filtering, and bounded rendering.
+- Every visible control either performs its labelled action or is disabled with a specific explanation; there are no no-op menu items or generic links to the wrong record.
+- Overview, forecast, recovery, OEM, program, model-year, and part figures reconcile to the same versioned source/calculation data and expose provenance.
+- Operations is understandable to a non-technical product owner through plain-language labels and drillable statuses; advanced implementation detail is progressively disclosed.
+- Verified or licensed brand assets are used; inaccurate vehicle imagery is absent.
+- Desktop, mobile, keyboard, screen-reader, browser, type, lint, test, build, tenant-isolation, and calculation-regression gates pass after the correction.
 
 ## Proposed architecture
 
@@ -57,6 +132,7 @@
 7. **Documents:** contract/DCR lifecycle, extraction job/review UI, field evidence/confidence/corrections, replaceable approved runtime provider, availability/failure behavior, security/cost documentation.
 8. **Reports and approvals:** scoped exports, claim/accrual reports, confirmed approval workflows, notification delivery, audit bundles, and accessible responsive workflow completion.
 9. **Release hardening:** E2E/browser/accessibility/performance/security review, backup/restore and incident guidance, monitoring/logging, deployment runbook, cost model, secret/dead-code/mock-data scan, and release-candidate verification.
+10. **Product model and enterprise UX correction:** separate Programs, Parts, DCRs, and Contracts; deliver the contract workspace and evidence-gated DCR pipeline; replace confusing or non-functional controls; add hierarchical selection, sorting, filtering, bounded tables, and traceable drill-downs; remove inaccurate imagery and unsupported implications; complete product-owner acceptance before enterprise testing.
 
 ## Material risks
 

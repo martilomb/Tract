@@ -25,3 +25,16 @@
 - [x] The generated Worker uses the hardened custom server entry; live local responses include correlation, CSP/isolation/frame/referrer/permissions/cache controls and structured request events.
 - [x] A distinct, fail-closed Cloudflare staging environment is committed, and its production bundle passes a local no-upload Wrangler dry run.
 - [x] No unsupported integration, compliance, accounting, or predictive claim is presented as an active capability.
+
+## Product model and enterprise UX acceptance
+
+- [ ] Programs, parts/revisions, DCRs, and contracts/recovery agreements have distinct persisted workflows and do not share a conflated creation form.
+- [ ] The Contracts workspace supports private originals, versions, extraction evidence, corrections, linked entities, terms, eligible-volume basis, approval, activation, expiry, supersession, and audit history.
+- [ ] DCRs use a left-to-right pipeline with search, filters, evidence/attachment/reviewer gates, assignments, comments, direct record links, and filterable transition history.
+- [ ] Operations uses plain-language explanations and drillable ingestion states; volume staging, document review queues, connectors, mappings, retries, reconciliation, and rules/policies expose meaningful actions and outcomes.
+- [ ] Forecast, Overview, Recoveries, Programs, and Parts use searchable OEM → program/model → model-year selection where relevant; long tables support sorting, filtering, counts, and pagination or virtualization.
+- [ ] OEM, program, model-year, and part drill-downs show actual, contract, forecast, variance, break-even, calculation version, source provenance, and related evidence.
+- [ ] Commodity filtering uses real part relationships and never assigns one exclusive synthetic commodity to a vehicle program.
+- [ ] Every visible control performs its labelled action or is disabled with a specific reason; Profile and Organization are functional, and API Keys exists only if a customer API is confirmed.
+- [ ] Inaccurate vehicle silhouettes and unsupported accounting/legal implications are absent; approved OEM assets or consistent text marks are used.
+- [ ] A product-owner browser review confirms the revised workflows and terminology are understandable without implementation knowledge.
