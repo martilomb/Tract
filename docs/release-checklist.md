@@ -6,7 +6,8 @@
 - [x] Static migration contract tests pass for ordering, transactions, RLS coverage, security-definer search paths, critical immutable/posting guards, and credential-shaped text.
 - [x] GitHub Actions applies all three Supabase migrations cleanly to a fresh database.
 - [x] Hosted `supabase db lint` and `supabase test db` pass, including ingestion, role-elevation, scoped-access, and cross-tenant denial checks.
-- [x] The project-scoped Supabase MCP server is registered and OAuth-authenticated locally for `qflwjgmrspmcyghzinwz`; staging inspection remains pending in a fresh Codex task that loads the newly registered tools.
+- [x] The project-scoped Supabase MCP server is loaded and OAuth-authenticated for `qflwjgmrspmcyghzinwz`; read-only preflight confirms the documented staging reference, empty application migration/schema/Auth/Storage state, no application policies, and clean pre-migration advisors.
+- [ ] The staging migration ledger contains exact repository versions `202608210001`–`003` in order after the unchanged files are applied through the approved CLI path; MCP-generated substitute versions and manual ledger repair are not accepted.
 - [ ] Generated database types are committed and server queries use them.
 - [ ] Authentication, invitation, password reset, MFA policy, session expiry, and multi-organization switching pass browser tests.
 - [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass.

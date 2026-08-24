@@ -16,7 +16,9 @@ Activation status: the approved remote `https://github.com/martilomb/Tract.git` 
 
 ## 2. Supabase staging and database validation
 
-Activation status: the project-scoped Supabase MCP server is registered in Codex for `qflwjgmrspmcyghzinwz` and its OAuth login completed on 24 August 2026. The task in which it was added cannot acquire new tools after startup, so no project metadata, migration state, database types, Auth configuration, Storage behavior, or staging records have yet been read or changed. Start a fresh Codex task in this repository to load the authenticated Supabase tools; do not re-add the server or paste credentials.
+Activation status: the project-scoped Supabase MCP server is loaded for `qflwjgmrspmcyghzinwz` and its OAuth login completed on 24 August 2026. Read-only preflight confirmed the exact project URL and the documented non-production staging reference: the application migration ledger and public schema are empty, there are zero Auth users, Storage buckets, and Storage objects, there are no application policies, and the security/performance advisors have no pre-migration findings. No staging mutation has been made.
+
+The existing migrations must retain repository versions `202608210001`–`003`. The current MCP `apply_migration` operation generates its own server-side version, so it is not an acceptable application path for these existing files because it would create remote/local ledger drift. Supply the approved Supabase CLI authentication/link method and use pinned CLI `2.111.0` to push the unchanged files. Acceptance requires the remote ledger versions, names, and order to match the repository before database types or hosted suites are treated as valid. Do not paste credentials into source or repair the ledger manually.
 
 Provide or approve:
 
