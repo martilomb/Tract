@@ -1,6 +1,6 @@
 # Release checklist
 
-- [ ] Product owner supplies or approves the Git remote; no remote is connected yet.
+- [x] The approved GitHub remote is connected at `https://github.com/martilomb/Tract.git`, and the existing `main` history was published without rewriting it.
 - [x] Local `pnpm install --frozen-lockfile` and `pnpm check` pass.
 - [x] Dependency review has no known production vulnerabilities.
 - [x] Static migration contract tests pass for ordering, transactions, RLS coverage, security-definer search paths, critical immutable/posting guards, and credential-shaped text.

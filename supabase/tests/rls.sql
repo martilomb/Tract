@@ -12,10 +12,12 @@ select is((select count(*) from public.programs), 1::bigint, 'scoped member sees
 select is((select count(*) from public.parts), 1::bigint, 'program grant gives additive access to program part');
 select is((select count(*) from public.programs where organization_id = '20000000-0000-0000-0000-000000000002'), 0::bigint, 'other tenant program is denied');
 select is((select count(*) from public.parts where organization_id = '20000000-0000-0000-0000-000000000002'), 0::bigint, 'other tenant part is denied');
-select throws_ok(
-  $$update public.memberships set role = 'administrator' where user_id = '10000000-0000-0000-0000-000000000002'$$,
-  '42501',
-  null,
+update public.memberships
+set role = 'administrator'
+where user_id = '10000000-0000-0000-0000-000000000002';
+select is(
+  (select role from public.memberships where user_id = '10000000-0000-0000-0000-000000000002'),
+  'member'::public.organization_role,
   'member cannot elevate their own role'
 );
 select throws_ok(

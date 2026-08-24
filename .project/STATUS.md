@@ -2,7 +2,7 @@
 
 ## Current stage
 
-All useful Milestone 1–9 production work that can run without external accounts, credentials, paid services, Docker, PostgreSQL, or the Supabase CLI is complete. Hosted activation remains fail-closed, modular, and approval-gated.
+All useful Milestone 1–9 production work is complete. The approved GitHub repository is connected and the existing `main` history is published without rewriting it. Hosted activation remains fail-closed, modular, and approval-gated.
 
 ## Completed
 
@@ -37,17 +37,16 @@ All useful Milestone 1–9 production work that can run without external account
 - Live local health response verified fail-closed `503` behavior plus no-store, CSP, frame denial, opener isolation, and malformed request-id replacement. Bundle inspection verified the hardened entry is present in `dist/server/index.js`.
 - Static migration tests pass for order, transaction wrapping, RLS coverage, security-definer `search_path`, critical immutability/posting guards, and credential-shaped text. Cloudflare Worker production build passes without connecting an account.
 - Repository scan found no committed secret material or unresolved source TODO/FIXME markers; retained references to the original prototype are limited to durable provenance/safeguard documentation.
-- Supabase pgTAP/RLS tests, including ingestion and cross-tenant/unapproved-ledger denial checks, are authored and wired into CI. Their execution remains an external staging validation, not a reason to pause local work.
+- GitHub Actions successfully created a local Supabase stack, applied all three migrations, passed database lint, and passed the ingestion pgTAP suite. Its first RLS run exposed an incorrect test expectation: PostgreSQL denied a member's role update by matching zero rows rather than raising an exception. The regression now verifies that the role remains unchanged; the hosted rerun is pending.
 
 ## Genuine activation blockers
 
-- An approved GitHub repository is required to publish the local history and execute protected hosted CI.
 - A Supabase staging project/access is required to apply migrations, generate project database types, and execute the pgTAP/RLS/auth/storage/restore suite.
 - A Cloudflare account/project and controlled secret values are required for a staging deployment and hosted log/health verification.
 - Production IHS/AFS, SAP/ERP, document extraction/scanning, notification, and SSO providers require approved specifications, credentials, licensing/data-processing terms, and any paid-service approval.
 - Authoritative customer rules remain required for FX, settlement rounding, claim eligibility, clawbacks/profit release, retention, residency, RPO/RTO, notification recipients, and formal compliance commitments. Existing behavior remains versioned/configurable or disabled.
-- No Git remote, hosted account, provider connection, credential, or paid service has been activated. The complete input checklist is [docs/external-activation.md](../docs/external-activation.md).
+- The GitHub remote is active. No Supabase or Cloudflare deployment, provider connection, credential, or paid service has been activated. The complete input checklist is [docs/external-activation.md](../docs/external-activation.md).
 
 ## Exact next step
 
-Connect the approved GitHub repository, then validate the three migrations and generated types in the approved Supabase staging project. Execute hosted RLS/Auth/Storage/restore checks before staging deployment. Activate IHS/AFS, SAP, scanning/extraction, email, SSO, or other providers independently only after the corresponding specifications, samples, licensing/security approval, credentials, and reconciliation evidence in [docs/external-activation.md](../docs/external-activation.md) are complete.
+Complete the hosted CI rerun, then link the approved Supabase staging project, generate project database types, and execute hosted RLS/Auth/Storage/restore checks before staging deployment. Activate IHS/AFS, SAP, scanning/extraction, email, SSO, or other providers independently only after the corresponding specifications, samples, licensing/security approval, credentials, and reconciliation evidence in [docs/external-activation.md](../docs/external-activation.md) are complete.

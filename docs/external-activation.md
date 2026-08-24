@@ -12,7 +12,7 @@ Provide or approve:
 - Permission for GitHub Actions and Dependabot; decide who reviews weekly dependency and Actions updates.
 - CI/environment ownership and the approved method for adding repository or environment secrets.
 
-Activation work: add the approved remote, push the existing commits, verify both CI jobs, enable branch protection/Dependabot, and record the repository and release owner. No remote is configured locally today.
+Activation status: the approved remote `https://github.com/martilomb/Tract.git` is connected and the existing `main` history is published without rewriting it. Remaining work is to verify both CI jobs, enable branch protection/Dependabot, and record the repository and release owner.
 
 ## 2. Supabase staging and database validation
 
