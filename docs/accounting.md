@@ -24,5 +24,7 @@ over-recovery = max(-remaining, 0)
 - One ISO 4217 settlement currency is used per accrual. The schema leaves room for versioned FX rates, but no conversion occurs until the rules are approved.
 - Calculations retain exact decimal precision. Half-even rounding to two decimals is the default settlement/report boundary and is policy-controlled.
 - A policy change requires a new version and effective date. Recalculation produces a visible new run and never silently replaces an earlier result.
+- Dashboard under- and over-recovery exposures are gross sums by selected record and do not net opposing program or part positions. Projected variance remains the net identity `forecast at completion − total recoverable cost`.
+- Forecast alerts use approved, versioned materiality rules with explicit absolute/percentage bases and documented program/agreement overrides. These rules are not contractual caps and do not authorize claims, remedies, clawbacks, releases, or postings.
 
 The TypeScript calculation is in `src/domain/recovery.ts`; source qualification is in `src/domain/ingestion.ts`. Database storage and constraints are in migrations `202608210002_product.sql` and `202608210003_ingestion_domains.sql`.

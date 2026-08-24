@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
+import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -37,14 +38,24 @@ const DrawerContent = React.forwardRef<
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
+      data-tract-overlay-content="drawer"
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[calc(100dvh-1rem)] flex-col overflow-hidden rounded-t-[10px] border bg-background",
         className,
       )}
       {...props}
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-      {children}
+      <div
+        data-tract-overlay-scroll-region="drawer"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        {children}
+      </div>
+      <DrawerPrimitive.Close className="absolute right-4 top-4 z-20 rounded-sm bg-background/95 p-1 opacity-80 shadow-sm ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DrawerPrimitive.Close>
     </DrawerPrimitive.Content>
   </DrawerPortal>
 ));

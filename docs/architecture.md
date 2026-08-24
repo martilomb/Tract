@@ -11,6 +11,8 @@ Browser -> TanStack Start / Cloudflare Worker -> Supabase Auth + Postgres + priv
 
 The canonical business rules live in `src/domain`. Database constraints and RLS enforce invariants and atomic persistence; they do not introduce a second financial formula. Server-only adapters live in `src/server`. Customer configuration is declarative and versioned, never executable.
 
+All analytical workspaces and exports consume one canonical analysis snapshot rather than re-aggregating route-local values. In demonstration mode, the snapshot starts from deterministic part-level facts, allocates exact model-year values, and rolls them up part → program → OEM. In an authenticated workspace, the same interface must be populated from tenant-scoped persisted query results. Scope, organization, as-of time, currency, calculation version, forecast version, source version, provenance, chart series, record table, alerts, and export rows travel together so a filter cannot silently change only one surface.
+
 ## Mandatory invariants
 
 - `organization_id` is the tenant boundary on every owned record.
@@ -19,6 +21,7 @@ The canonical business rules live in `src/domain`. Database constraints and RLS 
 - Source volume events, completed calculations, DCR history, extraction approvals, and audit events are append-only.
 - Original source objects and raw ingestion records are immutable. Mapping creates separate versioned candidates; only reviewed and approved candidates can post.
 - Money, rates, volume, and derived results use decimal strings in TypeScript and Postgres `numeric`; floating-point arithmetic is not accepted in accounting code.
+- Presentation aggregates never use fixed target anchors or proportional normalization. Gross under- and over-recovery are summed separately so opposing records cannot hide exposure; remaining recovery is additive by record.
 - Policy and workflow changes are versioned and effective-dated. Existing calculation runs retain the exact configuration and source-event references used.
 - Over-recovery remains visible but has no automatic accounting treatment.
 - Programs, model years, parts/revisions, DCRs, and recovery agreements are independent canonical records joined by tenant-bound relationships. Recovery activation and calculation require an effective approved agreement.

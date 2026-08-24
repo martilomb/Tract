@@ -2,7 +2,7 @@
 
 Real SAP/ERP, IHS/AFS, document scanning/extraction, email/notification, and SSO behavior is unverified until the approved specifications and environments below are supplied and the defined validation passes. Local synthetic/configuration tests do not establish a live integration.
 
-The credential-free Milestone 10 increment is implemented without activating paid or live providers. The items below are the consolidated inputs needed to validate and activate hosted behavior. Secrets should be placed in the approved secret store or CI environment, not committed or pasted into source files.
+The published credential-free Milestone 10 baseline did not activate paid or live providers. Product-owner acceptance is now reopened for credential-free A–G corrections; that work does not change the external inputs below. The items remain the consolidated inputs needed to validate and activate hosted behavior. Secrets should be placed in the approved secret store or CI environment, not committed or pasted into source files.
 
 ## 1. GitHub repository connection
 

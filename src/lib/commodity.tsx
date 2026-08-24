@@ -1,13 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import {
-  programs as allPrograms,
-  parts as allParts,
-  oemSummary as allOemSummary,
-  scenarioInsights as allInsights,
-  overRecoveryBreakdown as allOverBreakdown,
-  overRecoveryTimeline as allOverTimeline,
-  type Part,
-} from "./demo-data";
+import { programs as allPrograms, parts as allParts, type Part } from "./demo-data";
 
 export const COMMODITIES = [
   "Wire Harness",
@@ -70,35 +62,14 @@ export function useDataset() {
       return {
         programs: allPrograms,
         parts: allParts,
-        oemSummary: allOemSummary,
-        scenarioInsights: allInsights,
-        overRecoveryBreakdown: allOverBreakdown,
-        overRecoveryTimeline: allOverTimeline,
       };
     }
     const parts = allParts.filter((part) => partCommodity(part) === commodity);
     const ids = new Set(parts.map((part) => part.programId));
     const programs = allPrograms.filter((program) => ids.has(program.id));
-    const oemsSet = new Set(programs.map((p) => p.oem));
-    const oemSummary = allOemSummary.filter((o) => oemsSet.has(o.oem));
-    const scenarioInsights = allInsights.filter((i) => ids.has(i.programId));
-    const ratio = allPrograms.length ? programs.length / allPrograms.length : 0;
-    const overRecoveryBreakdown = allOverBreakdown.map((b) => ({
-      ...b,
-      amount: Math.round(b.amount * ratio),
-    }));
-    const overRecoveryTimeline = allOverTimeline.map((t) => ({
-      ...t,
-      quarter: +(t.quarter * ratio).toFixed(2),
-      cumulative: +(t.cumulative * ratio).toFixed(2),
-    }));
     return {
       programs,
       parts,
-      oemSummary,
-      scenarioInsights,
-      overRecoveryBreakdown,
-      overRecoveryTimeline,
     };
   }, [commodity]);
 }

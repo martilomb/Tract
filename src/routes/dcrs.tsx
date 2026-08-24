@@ -457,7 +457,9 @@ function DcrWorkflowPage() {
               </CardContent>
               <CardContent className="flex flex-wrap gap-2 border-t pt-4">
                 <Button asChild size="sm" variant="outline">
-                  <Link to="/programs">Open program</Link>
+                  <Link to="/programs" search={{ programId: undefined }}>
+                    Open program
+                  </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
                   <Link to="/parts">Open part</Link>

@@ -563,7 +563,7 @@ function ConnectionWizard({
         if (value) setStep(initialStep);
       }}
     >
-      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Add data connection</DialogTitle>
           <DialogDescription>

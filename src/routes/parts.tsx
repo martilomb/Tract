@@ -818,7 +818,7 @@ function DcrDialog({ part, onClose }: { part: Part | null; onClose: () => void }
   const dcr = part ? getDCR(part) : null;
   return (
     <Dialog open={!!part} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-3xl p-0" showCloseButton={false}>
         {part && dcr && (
           <>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-6 py-3 backdrop-blur print:hidden">

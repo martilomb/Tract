@@ -18,6 +18,9 @@ import { CreateProgramDialog } from "@/components/create-program-dialog";
 
 export const Route = createFileRoute("/programs")({
   component: ProgramsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    programId: typeof search.programId === "string" ? search.programId : undefined,
+  }),
 });
 
 interface OemGroup {

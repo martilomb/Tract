@@ -1,27 +1,21 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AppShell } from "@/components/app-shell";
-import { StatCard, StatusPill } from "@/components/stat-card";
-import { CreateProgramDialog } from "@/components/create-program-dialog";
 import {
-  DollarSign,
-  TrendingUp,
   AlertTriangle,
-  Package,
-  FileClock,
-  ArrowRight,
-  Download,
-  Plus,
-  ShieldCheck,
-  Banknote,
-  ArrowUpRight,
-  ArrowDownRight,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Banknote,
   ChevronLeft,
   ChevronRight,
+  Download,
+  FileClock,
+  LineChart as LineChartIcon,
   Search,
+  ShieldCheck,
+  Table2,
+  TrendingUp,
+  WalletCards,
 } from "lucide-react";
 import {
   Area,
@@ -29,27 +23,21 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   Line,
-  Pie,
-  PieChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+
+import { AppShell } from "@/components/app-shell";
 import {
-  formatMoney,
-  formatNumber,
-  statusMeta,
-  programs as _allPrograms,
-  type Program,
-} from "@/lib/demo-data";
-import { useDataset } from "@/lib/commodity";
+  HierarchicalProgramSelector,
+  type HierarchySelection,
+} from "@/components/hierarchical-program-selector";
+import { StatCard, StatusPill } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -57,1293 +45,991 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { OemMark } from "@/components/oem-badge";
+import { Input } from "@/components/ui/input";
 import {
-  HierarchicalProgramSelector,
-  type HierarchySelection,
-} from "@/components/hierarchical-program-selector";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DEFAULT_ANALYSIS_SCOPE,
+  analysisCsv,
+  buildAnalysisSnapshot,
+  type AnalysisRecord,
+  type AnalysisScope,
+  type AnalysisSnapshot,
+} from "@/domain/analytics";
+import { formatMoney, parts, programModelYears, programs, statusMeta } from "@/lib/demo-data";
+
+type OverviewSearch = {
+  dimension?: "program" | "part";
+  oem?: string;
+  programId?: string;
+  modelYear?: string;
+  partId?: string;
+};
 
 export const Route = createFileRoute("/")({
   component: Overview,
+  validateSearch: (search: Record<string, unknown>): OverviewSearch => ({
+    dimension: search.dimension === "part" ? "part" : undefined,
+    oem: typeof search.oem === "string" ? search.oem : undefined,
+    programId: typeof search.programId === "string" ? search.programId : undefined,
+    modelYear: typeof search.modelYear === "string" ? search.modelYear : undefined,
+    partId: typeof search.partId === "string" ? search.partId : undefined,
+  }),
 });
 
-type ProgramSortKey = "name" | "recoveredToDate" | "totalAmortized" | "status";
-type ProgramSortDirection = "ascending" | "descending" | "none";
-const OVERVIEW_PROGRAM_PAGE_SIZE = 25;
+type DetailKey = "total" | "recovered" | "forecast" | "under" | "over" | "my2026";
+type ViewMode = "chart" | "table";
+type SortKey = "label" | "recoveredToDate" | "totalRecoverableCost" | "status";
+type SortDirection = "ascending" | "descending" | "none";
 
-// ---- Per-program chart series: actual → forecast to reach total → over-recovery projection ----
-function buildProgramSeries(p: (typeof _allPrograms)[number]) {
-  const sop = new Date(p.sop);
-  const eop = new Date(p.eop);
-  const monthsTotal = Math.max(
-    12,
-    Math.round((eop.getTime() - sop.getTime()) / (1000 * 60 * 60 * 24 * 30)),
-  );
-  const contractedMonthly = p.totalAmortized / monthsTotal;
-  const now = new Date();
-  const elapsed = Math.max(
-    1,
-    Math.min(
-      monthsTotal - 2,
-      Math.round((now.getTime() - sop.getTime()) / (1000 * 60 * 60 * 24 * 30)),
-    ),
-  );
-  const actualRate = p.recoveredToDate / elapsed;
-  const forecastRate =
-    (p.forecastRecovery - p.recoveredToDate) / Math.max(1, monthsTotal - elapsed);
+const PAGE_SIZE = 25;
+const ANALYSIS_BOOK = { programs, parts, programModelYears };
+const ORGANIZATION_SCOPE: AnalysisScope = DEFAULT_ANALYSIS_SCOPE;
 
-  const data: {
-    month: string;
-    actual: number | null;
-    forecast: number | null;
-    over: number | null;
-    contracted: number;
-  }[] = [];
-
-  let actualCum = 0;
-  let forecastCum = 0;
-
-  for (let i = 0; i < monthsTotal; i++) {
-    const d = new Date(sop.getFullYear(), sop.getMonth() + i, 1);
-    const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-    const contractedCum = contractedMonthly * (i + 1);
-
-    if (i < elapsed) {
-      actualCum += actualRate;
-      forecastCum = actualCum;
-      data.push({
-        month: label,
-        actual: actualCum,
-        forecast: actualCum,
-        over: null,
-        contracted: contractedCum,
-      });
-    } else {
-      forecastCum += forecastRate;
-      const reached = forecastCum >= p.totalAmortized;
-      data.push({
-        month: label,
-        actual: null,
-        forecast: reached ? p.totalAmortized : forecastCum,
-        over: reached ? forecastCum : null,
-        contracted: contractedCum,
-      });
-    }
-  }
-  const breakEvenIdx = data.findIndex((d) => (d.forecast ?? 0) >= p.totalAmortized);
-  return { data, breakEvenMonth: breakEvenIdx >= 0 ? data[breakEvenIdx].month : null };
+function downloadCsv(snapshot: AnalysisSnapshot) {
+  const blob = new Blob([analysisCsv(snapshot)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `tract-recovery-${snapshot.scope.dimension}-${snapshot.provenance.asOf.slice(0, 10)}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
-// ---- Aggregates derived from the (commodity-filtered) dataset ----
-// Target aggregates for the overview KPIs. The synthetic supplier book
-// contains ~200 programs which raw-sum to tens of billions — for a
-// realistic Tier-1 electronics commodity story we normalize the overview
-// totals to these anchors and scale per-program contributions proportionally.
-const TARGET_TOTAL_AMORTIZED = 462_000_000;
-const TARGET_OVER_POOL = 18_000_000;
-const TARGET_UNDER_EXPOSURE = 3_000_000;
-
-function useAggregates() {
-  const ds = useDataset();
-  const { programs } = ds;
-  const rawTotal = programs.reduce((s, p) => s + p.totalAmortized, 0);
-  const rawRecovered = programs.reduce((s, p) => s + p.recoveredToDate, 0);
-  const underPrograms = programs.filter((p) => p.forecastRecovery < p.totalAmortized);
-  const overPrograms = programs.filter((p) => p.forecastRecovery > p.totalAmortized);
-  const rawUnder = underPrograms.reduce((s, p) => s + (p.totalAmortized - p.forecastRecovery), 0);
-  const rawOver = overPrograms.reduce((s, p) => s + (p.forecastRecovery - p.totalAmortized), 0);
-
-  const scaleTotal = rawTotal ? TARGET_TOTAL_AMORTIZED / rawTotal : 0;
-  const scaleOver = rawOver ? TARGET_OVER_POOL / rawOver : 0;
-  const scaleUnder = rawUnder ? TARGET_UNDER_EXPOSURE / rawUnder : 0;
-
-  const totalContracted = TARGET_TOTAL_AMORTIZED;
-  const totalRecovered = rawRecovered * scaleTotal;
-  const overPool = TARGET_OVER_POOL;
-  const underExposure = TARGET_UNDER_EXPOSURE;
-  const totalForecast = totalContracted + overPool - underExposure;
-  const annualizedRecovery = totalRecovered / 1.9;
-  const forecastVsContractPct = totalContracted
-    ? ((totalForecast - totalContracted) / totalContracted) * 100
-    : 0;
-
-  const scaleProgramAmortized = (p: Program) => p.totalAmortized * scaleTotal;
-  const scaleProgramRecovered = (p: Program) => p.recoveredToDate * scaleTotal;
-  const scaleProgramForecast = (p: Program) => {
-    const base = p.totalAmortized * scaleTotal;
-    const delta = p.forecastRecovery - p.totalAmortized;
-    const scaledDelta = delta > 0 ? delta * scaleOver : delta * scaleUnder;
-    return base + scaledDelta;
-  };
-
+function getScope(search: OverviewSearch): AnalysisScope {
+  const modelYear = search.modelYear ? Number(search.modelYear) : Number.NaN;
   return {
-    ...ds,
-    totalContracted,
-    totalRecovered,
-    totalForecast,
-    underPrograms,
-    overPrograms,
-    underExposure,
-    overPool,
-    annualizedRecovery,
-    forecastVsContractPct,
-    scaleTotal,
-    scaleOver,
-    scaleUnder,
-    scaleProgramAmortized,
-    scaleProgramRecovered,
-    scaleProgramForecast,
+    ...DEFAULT_ANALYSIS_SCOPE,
+    dimension: search.dimension ?? "program",
+    oem: search.oem ?? "all",
+    programId: search.programId ?? "all",
+    modelYear: Number.isInteger(modelYear) ? modelYear : "all",
+    partId: search.partId ?? "all",
   };
-}
-
-// ---- KPI detail dialog contents ----
-type DetailKey = "amortized" | "recovered" | "forecast" | "under" | "over" | null;
-
-function KpiDetailDialog({
-  open,
-  onOpenChange,
-  which,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  which: DetailKey;
-}) {
-  const {
-    programs,
-    overRecoveryBreakdown,
-    underPrograms,
-    overPrograms,
-    totalRecovered,
-    totalContracted,
-    totalForecast,
-    forecastVsContractPct,
-    annualizedRecovery,
-    scaleOver,
-    scaleUnder,
-    scaleProgramAmortized,
-    scaleProgramRecovered,
-    scaleProgramForecast,
-  } = useAggregates();
-  if (!which) return null;
-
-  const content: Record<Exclude<DetailKey, null>, { title: string; body: React.ReactNode }> = {
-    amortized: {
-      title: "Total amortized cost — breakdown by program",
-      body: (
-        <ProgramBreakdownTable
-          rows={programs.map((p) => ({
-            program: p,
-            primary: scaleProgramAmortized(p),
-            secondary: p.partsCount,
-            secondaryLabel: "parts",
-          }))}
-          primaryLabel="Amortized"
-        />
-      ),
-    },
-    recovered: {
-      title: "Annualized recovery run-rate",
-      body: (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-secondary/40 p-4 text-sm">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Annualized rate
-            </div>
-            <div className="mt-1 font-display text-3xl font-bold">
-              {formatMoney(annualizedRecovery, { compact: true })}
-              <span className="ml-1 text-base font-medium text-muted-foreground">/ yr</span>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Based on {formatMoney(totalRecovered, { compact: true })} recovered across 1.9 avg
-              program-years of shipments (weighted by SOP).
-            </p>
-          </div>
-          <ProgramBreakdownTable
-            rows={programs.map((p) => ({
-              program: p,
-              primary: scaleProgramRecovered(p) / 1.9,
-              secondary: scaleProgramRecovered(p),
-              secondaryLabel: "to-date",
-              secondaryFormat: "money",
-            }))}
-            primaryLabel="Annualized"
-          />
-        </div>
-      ),
-    },
-    forecast: {
-      title: "Forecast-scenario total recovery",
-      body: (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            The selected development scenario projects{" "}
-            {forecastVsContractPct >= 0 ? "over" : "under"}-recovery of{" "}
-            <span className="font-semibold text-foreground">
-              {formatMoney(Math.abs(totalForecast - totalContracted), { compact: true })}
-            </span>{" "}
-            ({forecastVsContractPct.toFixed(1)}%) versus contracted amortization by EOP.
-          </p>
-          <ProgramBreakdownTable
-            rows={programs.map((p) => ({
-              program: p,
-              primary: scaleProgramForecast(p),
-              secondary: (scaleProgramForecast(p) / scaleProgramAmortized(p)) * 100,
-              secondaryLabel: "% of contract",
-              secondaryFormat: "pct",
-            }))}
-            primaryLabel="Forecast scenario"
-          />
-        </div>
-      ),
-    },
-    under: {
-      title: "Under-recovery exposure — claim opportunities",
-      body: (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-sm">
-            <div className="font-medium text-foreground">
-              {underPrograms.length} programs projected to miss contracted volume.
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Contract review is required before treating any shortfall as a recoverable claim. No
-              minimum-volume or take-or-pay right is inferred by Tract.
-            </p>
-          </div>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Program</th>
-                  <th className="px-3 py-2 text-right font-medium">Contracted</th>
-                  <th className="px-3 py-2 text-right font-medium">Forecast scenario</th>
-                  <th className="px-3 py-2 text-right font-medium">Shortfall</th>
-                  <th className="px-3 py-2 text-right font-medium">Vol gap</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {underPrograms.map((p) => {
-                  const gap = (p.totalAmortized - p.forecastRecovery) * scaleUnder;
-                  const volGap =
-                    ((p.contractedVolume - p.forecastVolume) / p.contractedVolume) * 100;
-                  return (
-                    <tr key={p.id} className="hover:bg-secondary/30">
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {p.oem} · {p.code}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs">
-                        {formatMoney(scaleProgramAmortized(p), { compact: true })}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs">
-                        {formatMoney(scaleProgramForecast(p), { compact: true })}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs font-semibold text-destructive">
-                        −{formatMoney(gap, { compact: true })}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                        −{volGap.toFixed(1)}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ),
-    },
-    over: {
-      title: "Over-recovery balance — accounting treatment review",
-      body: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            {overRecoveryBreakdown.map((b) => {
-              const tone =
-                b.key === "at-risk"
-                  ? "border-destructive/30 bg-destructive/5 text-destructive"
-                  : b.key === "pending"
-                    ? "border-warning/30 bg-warning/5 text-warning"
-                    : "border-success/30 bg-success/5 text-success";
-              return (
-                <div key={b.key} className={`rounded-lg border p-3 ${tone}`}>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider">
-                    {b.label}
-                  </div>
-                  <div className="mt-1 font-display text-2xl font-bold text-foreground">
-                    {formatMoney(b.amount, { compact: true })}
-                  </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{b.description}</p>
-                </div>
-              );
-            })}
-          </div>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Program</th>
-                  <th className="px-3 py-2 text-right font-medium">Over-recovery</th>
-                  <th className="px-3 py-2 text-right font-medium">% over</th>
-                  <th className="px-3 py-2 text-right font-medium">Vol upside</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {overPrograms.map((p) => {
-                  const over = (p.forecastRecovery - p.totalAmortized) * scaleOver;
-                  const pct = (over / scaleProgramAmortized(p)) * 100;
-                  const volUp =
-                    ((p.forecastVolume - p.contractedVolume) / p.contractedVolume) * 100;
-                  return (
-                    <tr key={p.id} className="hover:bg-secondary/30">
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {p.oem} · {p.code}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs font-semibold text-success">
-                        +{formatMoney(over, { compact: true })}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-xs">+{pct.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                        +{volUp.toFixed(1)}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ),
-    },
-  };
-
-  const { title, body } = content[which];
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Drill-down across all vehicle programs. Click a row on the parent tables to see
-            part-level detail.
-          </DialogDescription>
-        </DialogHeader>
-        {body}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ProgramBreakdownTable({
-  rows,
-  primaryLabel,
-}: {
-  rows: {
-    program: (typeof _allPrograms)[number];
-    primary: number;
-    secondary: number;
-    secondaryLabel: string;
-    secondaryFormat?: "money" | "pct" | "number";
-  }[];
-  primaryLabel: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <table className="w-full text-sm">
-        <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left font-medium">Program</th>
-            <th className="px-3 py-2 text-right font-medium">{primaryLabel}</th>
-            <th className="px-3 py-2 text-right font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows
-            .sort((a, b) => b.primary - a.primary)
-            .map((row) => {
-              const s =
-                row.secondaryFormat === "money"
-                  ? formatMoney(row.secondary, { compact: true })
-                  : row.secondaryFormat === "pct"
-                    ? `${row.secondary.toFixed(0)}%`
-                    : formatNumber(row.secondary);
-              return (
-                <tr key={row.program.id} className="hover:bg-secondary/30">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{row.program.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {row.program.oem} · {s} {row.secondaryLabel}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">
-                    {formatMoney(row.primary, { compact: true })}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <StatusPill {...statusMeta[row.program.status]} />
-                  </td>
-                </tr>
-              );
-            })}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 function Overview() {
-  const {
-    programs,
-    oemSummary,
-    scenarioInsights,
-    overRecoveryBreakdown,
-    overRecoveryTimeline,
-    totalContracted,
-    totalForecast,
-    underPrograms,
-    underExposure,
-    overPool,
-    annualizedRecovery,
-    forecastVsContractPct,
-  } = useAggregates();
-  const [detail, setDetail] = useState<DetailKey>(null);
-  const fallbackProgramId = programs[0]?.id ?? _allPrograms[0].id;
-  const [selection, setSelection] = useState<HierarchySelection>({
-    oem: "all",
-    programId: fallbackProgramId,
-    modelYear: "all",
-  });
-  const [programQuery, setProgramQuery] = useState("");
-  const [programSortKey, setProgramSortKey] = useState<ProgramSortKey>("name");
-  const [programSortDirection, setProgramSortDirection] =
-    useState<ProgramSortDirection>("ascending");
-  const [programPage, setProgramPage] = useState(1);
-  const selectedProgram = useMemo(() => {
-    const source = programs.length ? programs : _allPrograms;
-    return source.find((p) => p.id === selection.programId) ?? source[0];
-  }, [selection.programId, programs]);
-  const { data: programSeries, breakEvenMonth: programBreakEven } = useMemo(
-    () => buildProgramSeries(selectedProgram),
-    [selectedProgram],
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const scope = useMemo(() => getScope(search), [search]);
+  const organization = useMemo(() => buildAnalysisSnapshot(ANALYSIS_BOOK, ORGANIZATION_SCOPE), []);
+  const my2026 = useMemo(
+    () =>
+      buildAnalysisSnapshot(ANALYSIS_BOOK, {
+        ...ORGANIZATION_SCOPE,
+        modelYear: 2026,
+      }),
+    [],
   );
-  const projectedOver = selectedProgram.forecastRecovery - selectedProgram.totalAmortized;
-  const sortedPrograms = useMemo(() => {
-    const query = programQuery.trim().toLowerCase();
-    const matching = programs.filter((program) =>
-      [program.name, program.oem, program.code, program.platform].some((value) =>
-        value.toLowerCase().includes(query),
-      ),
-    );
-    if (programSortDirection === "none") return matching;
-    const multiplier = programSortDirection === "ascending" ? 1 : -1;
-    return [...matching].sort((left, right) => {
-      const a = left[programSortKey];
-      const b = right[programSortKey];
-      return (
-        (typeof a === "number" && typeof b === "number"
-          ? a - b
-          : String(a).localeCompare(String(b))) * multiplier
-      );
-    });
-  }, [programQuery, programSortDirection, programSortKey, programs]);
-  const programPageCount = Math.max(
-    1,
-    Math.ceil(sortedPrograms.length / OVERVIEW_PROGRAM_PAGE_SIZE),
-  );
-  const safeProgramPage = Math.min(programPage, programPageCount);
-  const visiblePrograms = sortedPrograms.slice(
-    (safeProgramPage - 1) * OVERVIEW_PROGRAM_PAGE_SIZE,
-    safeProgramPage * OVERVIEW_PROGRAM_PAGE_SIZE,
-  );
-  const toggleProgramSort = (key: ProgramSortKey) => {
-    if (key !== programSortKey || programSortDirection === "none") {
-      setProgramSortKey(key);
-      setProgramSortDirection("ascending");
-    } else if (programSortDirection === "ascending") {
-      setProgramSortDirection("descending");
-    } else {
-      setProgramSortDirection("none");
-    }
-    setProgramPage(1);
+  const scoped = useMemo(() => buildAnalysisSnapshot(ANALYSIS_BOOK, scope), [scope]);
+  const [detail, setDetail] = useState<DetailKey | null>(null);
+  const detailTrigger = useRef<HTMLElement | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("chart");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("totalRecoverableCost");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
+  const [page, setPage] = useState(1);
+
+  const selection: HierarchySelection = {
+    oem: scope.oem,
+    programId: scope.programId,
+    modelYear: scope.modelYear === "all" ? "all" : String(scope.modelYear),
+    partId: scope.partId === "all" ? undefined : scope.partId,
   };
 
-  const OVER_COLORS: Record<string, string> = {
-    "at-risk": "oklch(0.62 0.22 25)",
-    pending: "oklch(0.75 0.15 75)",
-    available: "oklch(0.62 0.15 155)",
+  const updateScope = (next: HierarchySelection) => {
+    void navigate({
+      search: {
+        dimension: scope.dimension === "part" ? "part" : undefined,
+        oem: next.oem === "all" ? undefined : next.oem,
+        programId: next.programId === "all" ? undefined : next.programId,
+        modelYear: next.modelYear === "all" ? undefined : next.modelYear,
+        partId: next.partId,
+      },
+      replace: true,
+    });
+    setPage(1);
+  };
+
+  const setDimension = (dimension: "program" | "part") => {
+    void navigate({
+      search: { ...search, dimension: dimension === "part" ? "part" : undefined },
+      replace: true,
+    });
+    setPage(1);
+  };
+
+  const visiblePrograms = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const rows = scoped.programRecords.filter(
+      (record) =>
+        (status === "all" || record.status === status) &&
+        (!normalized ||
+          `${record.label} ${record.secondaryLabel}`.toLowerCase().includes(normalized)),
+    );
+    if (sortDirection === "none") return rows;
+    return [...rows].sort((left, right) => {
+      const leftValue = left[sortKey];
+      const rightValue = right[sortKey];
+      const comparison =
+        typeof leftValue === "number" && typeof rightValue === "number"
+          ? leftValue - rightValue
+          : String(leftValue).localeCompare(String(rightValue));
+      return sortDirection === "ascending" ? comparison : -comparison;
+    });
+  }, [query, scoped.programRecords, sortDirection, sortKey, status]);
+
+  const pageCount = Math.max(1, Math.ceil(visiblePrograms.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = visiblePrograms.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const toggleSort = (next: SortKey) => {
+    if (sortKey !== next) {
+      setSortKey(next);
+      setSortDirection("ascending");
+    } else {
+      setSortDirection((current) =>
+        current === "ascending" ? "descending" : current === "descending" ? "none" : "ascending",
+      );
+    }
+    setPage(1);
+  };
+
+  const quarterly = useMemo(() => {
+    let prior = 0;
+    return organization.series
+      .filter((_, index) => (index + 1) % 3 === 0)
+      .map((period) => {
+        const cumulative = Math.max(period.variance, 0);
+        const added = Math.max(cumulative - prior, 0);
+        prior = cumulative;
+        return { period: period.period, added, cumulative };
+      });
+  }, [organization.series]);
+
+  const prioritizedAlerts = [...organization.alerts]
+    .sort((left, right) => right.amount - left.amount)
+    .slice(0, 5);
+
+  const openDetail = (next: DetailKey) => {
+    detailTrigger.current = document.activeElement as HTMLElement | null;
+    setDetail(next);
   };
 
   return (
     <AppShell
       title="Recovery Overview"
-      description="All vehicle programs, part numbers, and OEM amortizations in one place."
+      description="Organization-wide recovery position and a separate drill-down scope for programs and parts."
       actions={
-        <>
-          <Button variant="outline" size="sm" disabled title="Connect production data to export">
-            <Download className="mr-1.5 h-4 w-4" /> Export
-          </Button>
-          <CreateProgramDialog
-            trigger={
-              <Button size="sm">
-                <Plus className="mr-1.5 h-4 w-4" /> New program
-              </Button>
-            }
-          />
-        </>
+        <Button variant="outline" size="sm" onClick={() => downloadCsv(organization)}>
+          <Download className="mr-1.5 h-4 w-4" /> Export organization view
+        </Button>
       }
     >
-      {/* KPI row — clickable */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <ClickableKpi onClick={() => setDetail("amortized")}>
-          <StatCard
-            label="Total amortized"
-            value={formatMoney(totalContracted, { compact: true })}
-            delta={2.4}
-            deltaLabel="vs. last quarter"
-            icon={<DollarSign className="h-5 w-5" />}
-            accent="brand"
-          />
-        </ClickableKpi>
-        <ClickableKpi onClick={() => setDetail("recovered")}>
-          <StatCard
-            label="Annualized recovery"
-            value={`${formatMoney(annualizedRecovery, { compact: true })}/yr`}
-            delta={12.8}
-            deltaLabel="YoY growth"
-            icon={<TrendingUp className="h-5 w-5" />}
-            accent="success"
-          />
-        </ClickableKpi>
-        <ClickableKpi onClick={() => setDetail("forecast")}>
-          <StatCard
-            label="Forecast-scenario recovery"
-            value={formatMoney(totalForecast, { compact: true })}
-            delta={forecastVsContractPct}
-            deltaLabel="vs. contract"
-            icon={<FileClock className="h-5 w-5" />}
-            accent="brand"
-          />
-        </ClickableKpi>
-        <ClickableKpi onClick={() => setDetail("under")}>
-          <StatCard
-            label="Under-recovery exposure"
-            value={formatMoney(underExposure, { compact: true })}
-            delta={-8.4}
-            deltaLabel={`${underPrograms.length} programs`}
-            icon={<AlertTriangle className="h-5 w-5" />}
-            accent="destructive"
-          />
-        </ClickableKpi>
-        <ClickableKpi onClick={() => setDetail("over")}>
-          <StatCard
-            label="Over-recovery pool"
-            value={formatMoney(overPool, { compact: true })}
-            delta={14.6}
-            deltaLabel="requires review"
-            icon={<ShieldCheck className="h-5 w-5" />}
-            accent="success"
-          />
-        </ClickableKpi>
-        <ClickableKpi onClick={() => setDetail("over")}>
-          <StatCard
-            label="MY 2026 · accounting treatment pending"
-            value={formatMoney(
-              (overRecoveryBreakdown.find((b) => b.key === "available")?.amount ?? 0) * 0.62,
-              { compact: true },
-            )}
-            delta={9.2}
-            deltaLabel="audit-cleared"
-            icon={<Banknote className="h-5 w-5" />}
-            accent="success"
-          />
-        </ClickableKpi>
-      </div>
-
-      <div className="mt-6 card-elevated p-4">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          OEM → program / model → model year
+      <section aria-labelledby="organization-headline-title">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="organization-headline-title" className="text-base font-semibold">
+              Organization-wide headline information
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              These six tiles are not affected by the analytical selector below. Every value is a
+              direct calculation from the same synthetic source book.
+            </p>
+          </div>
+          <ProvenanceLine snapshot={organization} />
         </div>
-        <HierarchicalProgramSelector
-          programs={programs.length ? programs : _allPrograms}
-          value={selection}
-          onChange={setSelection}
-        />
-      </div>
-
-      {/* Main chart + insights */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="card-elevated lg:col-span-2 flex flex-col overflow-hidden">
-          <div className="relative gradient-navy px-5 pb-3 pt-5">
-            <div
-              className="pointer-events-none absolute inset-0 opacity-[0.06]"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
-                backgroundSize: "24px 24px",
-              }}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <KpiButton onClick={() => openDetail("total")}>
+            <StatCard
+              label="Total recoverable cost"
+              value={formatMoney(organization.metrics.totalRecoverableCost, { compact: true })}
+              icon={<WalletCards className="h-5 w-5" />}
+              accent="brand"
             />
-            <div className="relative flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <OemMark oem={selectedProgram.oem} size="lg" />
-                <div>
-                  <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/50">
-                    {selectedProgram.oem} · {selectedProgram.platform}
-                  </div>
-                  <h2 className="text-lg font-bold leading-tight text-white">
-                    {selectedProgram.name}
-                  </h2>
-                  <p className="mt-0.5 text-[11px] text-white/60">
-                    Cumulative recovery · staged actual, forecast scenario to break-even, projected
-                    over-recovery.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusPill {...statusMeta[selectedProgram.status]} />
-              </div>
-            </div>
-            <div className="relative mt-5 flex flex-wrap gap-2 pb-2 text-xs text-white/75">
-              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
-                Program {selectedProgram.code}
-              </span>
-              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
-                {selectedProgram.platform}
-              </span>
-            </div>
-          </div>
-          <div className="p-5 pt-4">
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <MiniStat
-                label="Recovered to date"
-                value={formatMoney(selectedProgram.recoveredToDate, { compact: true })}
-                tone="neutral"
-              />
-              <MiniStat label="Forecast break-even" value={programBreakEven ?? "—"} tone="brand" />
-              <MiniStat
-                label={projectedOver >= 0 ? "Projected over-recovery" : "Projected shortfall"}
-                value={`${projectedOver >= 0 ? "+" : "−"}${formatMoney(Math.abs(projectedOver), { compact: true })}`}
-                tone={projectedOver >= 0 ? "success" : "danger"}
-              />
-            </div>
-
-            <div className="mt-4 h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={programSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gActual" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="oklch(0.58 0.22 258)" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="oklch(0.58 0.22 258)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gForecast" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="oklch(0.75 0.15 75)" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="oklch(0.75 0.15 75)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gOver" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="oklch(0.62 0.15 155)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="oklch(0.62 0.15 155)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="oklch(0.9 0.01 250)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 10 }}
-                    stroke="oklch(0.6 0.03 260)"
-                    interval={5}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    stroke="oklch(0.6 0.03 260)"
-                    tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid oklch(0.92 0.012 255)",
-                      fontSize: 12,
-                    }}
-                    formatter={(value) =>
-                      value == null ? "—" : formatMoney(Number(value), { compact: true })
-                    }
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <ReferenceLine
-                    y={selectedProgram.totalAmortized}
-                    stroke="oklch(0.55 0.03 260)"
-                    strokeDasharray="4 4"
-                    label={{
-                      value: `Total to recover · ${formatMoney(selectedProgram.totalAmortized, { compact: true })}`,
-                      position: "insideTopRight",
-                      fontSize: 10,
-                      fill: "oklch(0.45 0.03 260)",
-                    }}
-                  />
-                  {programBreakEven && (
-                    <ReferenceLine
-                      x={programBreakEven}
-                      stroke="oklch(0.62 0.15 155)"
-                      strokeDasharray="3 3"
-                      label={{
-                        value: `Break-even · ${programBreakEven}`,
-                        position: "top",
-                        fontSize: 10,
-                        fill: "oklch(0.45 0.15 155)",
-                      }}
-                    />
-                  )}
-
-                  <Line
-                    type="monotone"
-                    dataKey="contracted"
-                    name="Contracted curve"
-                    stroke="oklch(0.55 0.03 260)"
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                    dot={false}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="actual"
-                    name="Actual"
-                    stroke="oklch(0.58 0.22 258)"
-                    fill="url(#gActual)"
-                    strokeWidth={2.5}
-                    connectNulls={false}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="forecast"
-                    name="Forecast scenario to total"
-                    stroke="oklch(0.75 0.15 75)"
-                    strokeDasharray="5 3"
-                    fill="url(#gForecast)"
-                    strokeWidth={2}
-                    connectNulls={false}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="over"
-                    name="Over-recovery forecast"
-                    stroke="oklch(0.62 0.15 155)"
-                    strokeDasharray="2 2"
-                    fill="url(#gOver)"
-                    strokeWidth={2}
-                    connectNulls={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          </KpiButton>
+          <KpiButton onClick={() => openDetail("recovered")}>
+            <StatCard
+              label="Recovered to date"
+              value={formatMoney(organization.metrics.recoveredToDate, { compact: true })}
+              icon={<TrendingUp className="h-5 w-5" />}
+              accent="success"
+            />
+          </KpiButton>
+          <KpiButton onClick={() => openDetail("forecast")}>
+            <StatCard
+              label="Forecast at completion"
+              value={formatMoney(organization.metrics.forecastAtCompletion, { compact: true })}
+              icon={<FileClock className="h-5 w-5" />}
+              accent="brand"
+            />
+          </KpiButton>
+          <KpiButton onClick={() => openDetail("under")}>
+            <StatCard
+              label="Under-recovery exposure"
+              value={formatMoney(organization.metrics.underRecovery, { compact: true })}
+              icon={<AlertTriangle className="h-5 w-5" />}
+              accent="destructive"
+            />
+          </KpiButton>
+          <KpiButton onClick={() => openDetail("over")}>
+            <StatCard
+              label="Over-recovery review"
+              value={formatMoney(organization.metrics.overRecovery, { compact: true })}
+              icon={<ShieldCheck className="h-5 w-5" />}
+              accent="success"
+            />
+          </KpiButton>
+          <KpiButton onClick={() => openDetail("my2026")}>
+            <StatCard
+              label="MY 2026 over-recovery review"
+              value={formatMoney(my2026.metrics.overRecovery, { compact: true })}
+              icon={<Banknote className="h-5 w-5" />}
+              accent="success"
+            />
+          </KpiButton>
         </div>
+      </section>
 
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand/10 text-brand">
-                <FileClock className="h-4 w-4" />
-              </div>
-              <h2 className="text-base font-semibold">Forecast risks and variances</h2>
-            </div>
-            <span className="text-xs text-muted-foreground">Synthetic development rules</span>
+      <section className="mt-6 card-elevated p-5" aria-labelledby="risks-title">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 id="risks-title" className="text-base font-semibold">
+              Forecast risks and variances
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Organization-wide items exceeding approved materiality rule v1. Evidence review is
+              required before any business outcome.
+            </p>
           </div>
-          <div className="mt-4 space-y-3">
-            {scenarioInsights.map((i) => (
-              <div
-                key={i.id}
-                className="rounded-lg border border-border bg-secondary/40 p-3 transition-colors hover:bg-secondary"
-              >
-                <div className="flex items-start gap-2">
-                  <span
-                    className={
-                      "mt-1 h-2 w-2 shrink-0 rounded-full " +
-                      (i.severity === "high"
-                        ? "bg-destructive"
-                        : i.severity === "medium"
-                          ? "bg-warning"
-                          : "bg-success")
-                    }
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium leading-snug">{i.title}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">{i.body}</p>
-                    <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
-                      <span>Calculation: Development baseline v1</span>
-                      <span>Cause: Volume-to-contract variance</span>
-                      <span>Threshold: Program contract basis</span>
-                      <span>Evidence: Staged volume provenance</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span
-                        className={
-                          "font-mono text-xs font-semibold " +
-                          (i.delta < 0 ? "text-destructive" : "text-success")
-                        }
-                      >
-                        {i.delta < 0 ? "−" : "+"}
-                        {formatMoney(Math.abs(i.delta), { compact: true })}
-                      </span>
-                      <Link
-                        to="/forecasts"
-                        search={{ programId: i.programId }}
-                        className="inline-flex items-center text-xs font-medium text-brand hover:underline"
-                      >
-                        Open program calculation <ArrowRight className="ml-0.5 h-3 w-3" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Link to="/settings" className="text-xs font-medium text-brand hover:underline">
+            Review materiality rules
+          </Link>
         </div>
-      </div>
-
-      {/* Over-recovery detail row */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="card-elevated p-5 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold">Over-recovery pool</h2>
-              <p className="text-xs text-muted-foreground">By accounting-treatment review state</p>
-            </div>
-            <button
-              onClick={() => setDetail("over")}
-              className="text-xs font-medium text-brand hover:underline inline-flex items-center"
+        <div className="mt-4 grid gap-3 lg:grid-cols-5">
+          {prioritizedAlerts.map((alert) => (
+            <Link
+              key={alert.id}
+              to="/forecasts"
+              search={{ programId: alert.programId }}
+              className="rounded-lg border border-border p-3 transition hover:border-brand/50 hover:bg-secondary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
-              Details <ArrowRight className="ml-0.5 h-3 w-3" />
-            </button>
-          </div>
-          <div className="mt-3 flex items-center gap-4">
-            <div className="h-40 w-40 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={overRecoveryBreakdown}
-                    dataKey="amount"
-                    nameKey="label"
-                    innerRadius={38}
-                    outerRadius={68}
-                    stroke="none"
-                  >
-                    {overRecoveryBreakdown.map((b) => (
-                      <Cell key={b.key} fill={OVER_COLORS[b.key]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => formatMoney(Number(value ?? 0), { compact: true })}
-                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 space-y-2">
-              {overRecoveryBreakdown.map((b) => {
-                const pct = (b.amount / overPool) * 100;
-                return (
-                  <div key={b.key} className="text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 rounded-sm"
-                          style={{ background: OVER_COLORS[b.key] }}
-                        />
-                        <span className="font-medium">{b.label}</span>
-                      </div>
-                      <span className="font-mono text-xs">
-                        {formatMoney(b.amount, { compact: true })}
-                      </span>
-                    </div>
-                    <div className="ml-4 mt-0.5 text-[11px] text-muted-foreground">
-                      {pct.toFixed(0)}% of pool
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* 2026 over-recovery review box */}
-        {(() => {
-          const available = overRecoveryBreakdown.find((b) => b.key === "available")?.amount ?? 0;
-          const my2026 = available * 0.62;
-          const programs2026 = 14;
-          const pctOfPool = (my2026 / overPool) * 100;
-          return (
-            <div className="card-elevated relative overflow-hidden p-5">
-              <div
-                className="pointer-events-none absolute inset-0 opacity-[0.08]"
-                style={{
-                  background:
-                    "radial-gradient(circle at 85% 15%, hsl(var(--success)) 0%, transparent 55%)",
-                }}
-              />
-              <div className="relative flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-6 items-center rounded-md bg-success/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-success">
-                      MY 2026
-                    </span>
-                    <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Review required
-                    </span>
-                  </div>
-                  <h2 className="mt-2 text-base font-semibold">
-                    Accounting treatment not determined
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    2026 over-recoveries awaiting contract and accounting review
-                  </p>
-                </div>
-                <Link
-                  to="/recoveries"
-                  className="text-xs font-medium text-brand hover:underline inline-flex items-center"
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={`text-[10px] font-semibold uppercase tracking-wide ${alert.metric === "under-recovery" ? "text-destructive" : "text-success"}`}
                 >
-                  Review <ArrowRight className="ml-0.5 h-3 w-3" />
-                </Link>
+                  {alert.metric === "under-recovery" ? "Under" : "Over"} ·{" "}
+                  {alert.percentage.toFixed(1)}%
+                </span>
+                <span className="font-mono text-xs font-semibold">
+                  {formatMoney(alert.amount, { compact: true })}
+                </span>
               </div>
+              <div className="mt-2 text-sm font-medium leading-snug">{alert.label}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{alert.reason}</p>
+              <div className="mt-2 text-[10px] text-brand">Open calculation and evidence →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-              <div className="relative mt-4">
-                <div className="font-mono text-3xl font-semibold text-success">
-                  +{formatMoney(my2026, { compact: true })}
-                </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  {pctOfPool.toFixed(0)}% of over-recovery pool · {programs2026} programs
-                </div>
-              </div>
-
-              <div className="relative mt-4 space-y-2 border-t border-border/60 pt-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Evidence present</span>
-                  <span className="font-mono">{formatMoney(my2026 * 0.78, { compact: true })}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Additional review</span>
-                  <span className="font-mono">{formatMoney(my2026 * 0.22, { compact: true })}</span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setDetail("over")}
-                className="relative mt-4 inline-flex w-full items-center justify-center rounded-md bg-success/10 px-3 py-2 text-xs font-semibold text-success transition hover:bg-success/15"
-              >
-                Open review details
-              </button>
-            </div>
-          );
-        })()}
-
-        <div className="card-elevated p-5 lg:col-span-3">
-          <div className="flex items-center justify-between">
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <section className="card-elevated p-5" aria-labelledby="quarterly-title">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold">Over-recovery review queue — quarterly</h2>
+              <h2 id="quarterly-title" className="text-base font-semibold">
+                Over-recovery review queue — quarterly
+              </h2>
               <p className="text-xs text-muted-foreground">
-                Synthetic over-recovery balances added to the accounting review queue.
+                What gross positive variance entered organization-wide evidence review each quarter?
               </p>
             </div>
-            <div className="flex gap-4 text-xs">
-              <div className="text-right">
-                <div className="text-muted-foreground">All-time</div>
-                <div className="font-mono font-semibold text-success">
-                  +{formatMoney(45_400_000, { compact: true })}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-muted-foreground">This year</div>
-                <div className="font-mono font-semibold text-success">
-                  +{formatMoney(28_900_000, { compact: true })}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-muted-foreground">This quarter</div>
-                <div className="font-mono font-semibold text-success">
-                  +{formatMoney(11_400_000, { compact: true })}
-                </div>
-              </div>
-            </div>
+            <Link to="/recoveries" className="text-xs font-medium text-brand hover:underline">
+              Review evidence
+            </Link>
           </div>
-          <div className="mt-4 h-52">
+          <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={overRecoveryTimeline} margin={{ left: -8, right: 8, top: 8 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="oklch(0.9 0.01 250)"
-                  vertical={false}
-                />
+              <BarChart data={quarterly} margin={{ left: 4, right: 8, top: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}M`} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                  formatter={(value) => `$${Number(value ?? 0).toFixed(1)}M`}
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => moneyAxis(Number(value))}
                 />
+                <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar
-                  dataKey="quarter"
-                  name="Quarterly balance"
-                  fill="oklch(0.62 0.15 155)"
-                  radius={[3, 3, 0, 0]}
-                />
+                <Bar dataKey="added" name="Added to review" fill="oklch(0.62 0.15 155)" />
                 <Line
-                  type="monotone"
                   dataKey="cumulative"
-                  name="Cumulative"
+                  name="Cumulative review balance"
                   stroke="oklch(0.58 0.22 258)"
                   strokeWidth={2}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* OEM breakdown + programs table */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="card-elevated p-5">
-          <h2 className="text-base font-semibold">Recovery by OEM ($M)</h2>
-          <p className="text-xs text-muted-foreground">
-            Recovered vs. forecast scenario vs. total contracted.
-          </p>
-          <div className="mt-4 h-[420px]">
+        <section className="card-elevated p-5" aria-labelledby="oem-title">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 id="oem-title" className="text-base font-semibold">
+                Recovery by OEM
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Which OEM portfolios drive the organization-wide recovery position?
+              </p>
+            </div>
+            <span className="text-xs text-muted-foreground">USD · direct totals</span>
+          </div>
+          <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={oemSummary} layout="vertical" margin={{ left: 8, right: 16, top: 8 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="oklch(0.9 0.01 250)"
-                  horizontal={false}
-                />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="oem" tick={{ fontSize: 11 }} width={70} />
-                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+              <BarChart data={organization.oemRecords.slice(0, 10)} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={moneyAxis} />
+                <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={76} />
+                <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="recoveredToDate" name="Recovered" fill="oklch(0.62 0.15 155)" />
                 <Bar
-                  dataKey="recovered"
-                  name="Recovered"
-                  fill="oklch(0.62 0.15 155)"
-                  radius={[0, 3, 3, 0]}
-                />
-                <Bar
-                  dataKey="forecast"
-                  name="Forecast"
+                  dataKey="forecastAtCompletion"
+                  name="Forecast at completion"
                   fill="oklch(0.58 0.22 258)"
-                  radius={[0, 3, 3, 0]}
                 />
                 <Bar
-                  dataKey="contracted"
-                  name="Contracted"
+                  dataKey="totalRecoverableCost"
+                  name="Recoverable cost"
                   fill="oklch(0.85 0.02 255)"
-                  radius={[0, 3, 3, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold">Active programs</h2>
-              <p className="text-xs text-muted-foreground">
-                {programs.length} programs · {programs.reduce((s, p) => s + p.partsCount, 0)} part
-                numbers
-              </p>
-            </div>
-            <Link
-              to="/programs"
-              className="text-xs font-medium text-brand hover:underline inline-flex items-center"
-            >
-              View all <ArrowRight className="ml-0.5 h-3 w-3" />
-            </Link>
-          </div>
-          <div className="mt-4 max-h-[380px] overflow-y-auto rounded-lg border border-border">
-            <div className="sticky left-0 top-0 z-20 border-b bg-background p-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={programQuery}
-                  onChange={(event) => {
-                    setProgramQuery(event.target.value);
-                    setProgramPage(1);
-                  }}
-                  aria-label="Filter active programs"
-                  placeholder="Filter program, OEM, code, or platform"
-                  className="h-8 pl-9"
-                />
-              </div>
-            </div>
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-secondary/90 text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
-                <tr>
-                  <ProgramSortHead
-                    label="Program"
-                    sortKey="name"
-                    activeKey={programSortKey}
-                    direction={programSortDirection}
-                    onSort={toggleProgramSort}
-                  />
-                  <ProgramSortHead
-                    label="Recovered"
-                    sortKey="recoveredToDate"
-                    activeKey={programSortKey}
-                    direction={programSortDirection}
-                    onSort={toggleProgramSort}
-                    align="right"
-                  />
-                  <ProgramSortHead
-                    label="Contract"
-                    sortKey="totalAmortized"
-                    activeKey={programSortKey}
-                    direction={programSortDirection}
-                    onSort={toggleProgramSort}
-                    align="right"
-                  />
-                  <th className="px-3 py-2 text-left font-medium">Progress</th>
-                  <ProgramSortHead
-                    label="Status"
-                    sortKey="status"
-                    activeKey={programSortKey}
-                    direction={programSortDirection}
-                    onSort={toggleProgramSort}
-                  />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {visiblePrograms.map((p) => {
-                  const pct = Math.min(100, (p.recoveredToDate / p.totalAmortized) * 100);
-                  const fpct = Math.min(120, (p.forecastRecovery / p.totalAmortized) * 100);
-                  return (
-                    <tr key={p.id} className="hover:bg-secondary/30">
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-navy text-[10px] font-bold text-white">
-                            {p.oem.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium leading-tight">{p.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {p.oem} · {p.code}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-xs">
-                        {formatMoney(p.recoveredToDate, { compact: true })}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-xs text-muted-foreground">
-                        {formatMoney(p.totalAmortized, { compact: true })}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="relative h-2 w-32 overflow-hidden rounded-full bg-secondary">
-                          <div
-                            className="absolute inset-y-0 left-0 rounded-full bg-brand/30"
-                            style={{ width: `${Math.min(100, fpct)}%` }}
-                          />
-                          <div
-                            className="absolute inset-y-0 left-0 rounded-full bg-brand"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                          {pct.toFixed(0)}% · fcst {fpct.toFixed(0)}%
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <StatusPill {...statusMeta[p.status]} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Showing{" "}
-              {sortedPrograms.length === 0
-                ? 0
-                : (safeProgramPage - 1) * OVERVIEW_PROGRAM_PAGE_SIZE + 1}
-              –{Math.min(safeProgramPage * OVERVIEW_PROGRAM_PAGE_SIZE, sortedPrograms.length)} of{" "}
-              {sortedPrograms.length} matching programs
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={safeProgramPage === 1}
-                onClick={() => setProgramPage((current) => Math.max(1, current - 1))}
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+            {organization.oemRecords.slice(0, 10).map((record) => (
+              <button
+                key={record.id}
+                type="button"
+                onClick={() =>
+                  updateScope({ oem: record.label, programId: "all", modelYear: "all" })
+                }
+                className="rounded-md border border-border px-2.5 py-1 text-xs hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
-                <ChevronLeft className="h-4 w-4" /> Previous
-              </Button>
-              <span className="font-mono">
-                Page {safeProgramPage} of {programPageCount}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={safeProgramPage === programPageCount}
-                onClick={() => setProgramPage((current) => Math.min(programPageCount, current + 1))}
-              >
-                Next <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+                Analyze {record.label}
+              </button>
+            ))}
           </div>
-          <div className="mt-4 flex items-center gap-6 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Package className="h-3.5 w-3.5" /> {programs.reduce((s, p) => s + p.partsCount, 0)}{" "}
-              parts tracked
-            </div>
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="h-3.5 w-3.5" /> Synthetic staged volume
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
 
+      <section className="mt-8" aria-labelledby="analysis-title">
+        <div className="rounded-xl border-2 border-brand/20 bg-brand/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-brand">
+                Analytical section starts here
+              </div>
+              <h2 id="analysis-title" className="mt-1 text-lg font-semibold">
+                Select a program or part recovery scope
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                This selector changes only the graph, table, export, and Active Programs below. It
+                does not change the organization-wide content above.
+              </p>
+            </div>
+            <div
+              className="inline-flex rounded-lg border border-border bg-background p-1"
+              aria-label="Analyze by"
+            >
+              <Button
+                size="sm"
+                variant={scope.dimension === "program" ? "default" : "ghost"}
+                onClick={() => setDimension("program")}
+              >
+                Analyze by Program
+              </Button>
+              <Button
+                size="sm"
+                variant={scope.dimension === "part" ? "default" : "ghost"}
+                onClick={() => setDimension("part")}
+              >
+                Analyze by Part
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4">
+            <HierarchicalProgramSelector
+              programs={programs}
+              parts={parts}
+              value={selection}
+              onChange={updateScope}
+              showPart
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 card-elevated overflow-hidden">
+          <div className="gradient-navy px-5 py-4 text-white">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-white/60">
+                  Exact selected scope
+                </div>
+                <h3 className="mt-1 text-lg font-semibold">{scoped.scopeLabel}</h3>
+                <div className="mt-1 text-xs text-white/65">
+                  {scoped.records.length} {scope.dimension} records · {scoped.lines.length}{" "}
+                  model-year allocations
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="inline-flex rounded-md bg-white/10 p-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={
+                      viewMode === "chart"
+                        ? "bg-white text-navy hover:bg-white"
+                        : "text-white hover:bg-white/10"
+                    }
+                    onClick={() => setViewMode("chart")}
+                  >
+                    <LineChartIcon className="mr-1.5 h-4 w-4" /> Chart
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={
+                      viewMode === "table"
+                        ? "bg-white text-navy hover:bg-white"
+                        : "text-white hover:bg-white/10"
+                    }
+                    onClick={() => setViewMode("table")}
+                  >
+                    <Table2 className="mr-1.5 h-4 w-4" /> Table
+                  </Button>
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => downloadCsv(scoped)}>
+                  <Download className="mr-1.5 h-4 w-4" /> Export this scope
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MiniMetric label="Recoverable cost" value={scoped.metrics.totalRecoverableCost} />
+              <MiniMetric label="Recovered" value={scoped.metrics.recoveredToDate} />
+              <MiniMetric
+                label="Forecast at completion"
+                value={scoped.metrics.forecastAtCompletion}
+              />
+              <MiniMetric
+                label="Projected variance"
+                value={scoped.metrics.projectedVariance}
+                signed
+              />
+            </div>
+          </div>
+          <div className="p-5">
+            <ProvenanceLine snapshot={scoped} detailed />
+            {viewMode === "chart" ? (
+              <div className="mt-4 h-96" data-analysis-series="chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={scoped.series}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={moneyAxis} />
+                    <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line
+                      type="linear"
+                      dataKey="contract"
+                      name="Contract curve"
+                      stroke="oklch(0.55 0.03 260)"
+                      strokeDasharray="4 4"
+                      dot={false}
+                    />
+                    <Area
+                      type="linear"
+                      dataKey="actual"
+                      name="Actual recovery"
+                      stroke="oklch(0.62 0.15 155)"
+                      fill="oklch(0.62 0.15 155 / 0.18)"
+                      isAnimationActive={false}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="forecast"
+                      name="Forecast"
+                      stroke="oklch(0.58 0.22 258)"
+                      strokeWidth={2.5}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <SeriesTable snapshot={scoped} />
+            )}
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+              <span>
+                Break-even: {scoped.breakEvenPeriod ?? "not reached in selected forecast"}
+              </span>
+              <span>Remaining to recover: {formatMoney(scoped.metrics.remainingRecovery)}</span>
+              <span>
+                Evidence: {new Set(scoped.lines.flatMap((line) => line.evidenceIds)).size}{" "}
+                references
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 card-elevated p-5" aria-labelledby="active-programs-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="active-programs-title" className="text-base font-semibold">
+              Active programs in selected analytical scope
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {visiblePrograms.length} matching programs · every row opens program detail.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                aria-label="Search active programs"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search program, OEM, or code"
+                className="h-9 w-64 pl-9"
+              />
+            </div>
+            <Select
+              value={status}
+              onValueChange={(value) => {
+                setStatus(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger aria-label="Filter program recovery status" className="h-9 w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="on-track">On track</SelectItem>
+                <SelectItem value="over">Over-recovering</SelectItem>
+                <SelectItem value="under">Under-recovering</SelectItem>
+                <SelectItem value="at-risk">At risk</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[780px] text-sm">
+            <thead className="bg-secondary/70 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <SortHead
+                  label="Program"
+                  value="label"
+                  active={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                />
+                <SortHead
+                  label="Recovered"
+                  value="recoveredToDate"
+                  active={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortHead
+                  label="Recoverable cost"
+                  value="totalRecoverableCost"
+                  active={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <th className="px-3 py-2 text-right font-medium">Forecast</th>
+                <th className="px-3 py-2 text-right font-medium">Variance</th>
+                <SortHead
+                  label="Status"
+                  value="status"
+                  active={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {pageRows.map((record) => (
+                <tr
+                  key={record.id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() =>
+                    void navigate({ to: "/programs", search: { programId: record.programId } })
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void navigate({
+                        to: "/programs",
+                        search: { programId: record.programId },
+                      });
+                    }
+                  }}
+                  className="cursor-pointer hover:bg-secondary/40 focus:bg-secondary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+                  aria-label={`Open ${record.label} program detail`}
+                >
+                  <td className="px-3 py-3">
+                    <div className="font-medium">{record.label}</div>
+                    <div className="text-xs text-muted-foreground">{record.secondaryLabel}</div>
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">
+                    {formatMoney(record.recoveredToDate, { compact: true })}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">
+                    {formatMoney(record.totalRecoverableCost, { compact: true })}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-xs">
+                    {formatMoney(record.forecastAtCompletion, { compact: true })}
+                  </td>
+                  <td
+                    className={`px-3 py-3 text-right font-mono text-xs ${record.projectedVariance < 0 ? "text-destructive" : "text-success"}`}
+                  >
+                    {record.projectedVariance > 0 ? "+" : ""}
+                    {formatMoney(record.projectedVariance, { compact: true })}
+                  </td>
+                  <td className="px-3 py-3">
+                    <StatusPill {...statusMeta[record.status]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>
+            Showing {visiblePrograms.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–
+            {Math.min(safePage * PAGE_SIZE, visiblePrograms.length)} of {visiblePrograms.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={safePage === 1}
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <span className="font-mono">
+              Page {safePage} of {pageCount}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={safePage === pageCount}
+              onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <KpiDetailDialog
-        open={detail !== null}
-        onOpenChange={(v) => !v && setDetail(null)}
-        which={detail}
+        detail={detail}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetail(null);
+            requestAnimationFrame(() => detailTrigger.current?.focus());
+          }
+        }}
+        organization={organization}
+        my2026={my2026}
       />
     </AppShell>
   );
 }
 
-function ProgramSortHead({
+function KpiButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full rounded-lg text-left transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+    >
+      {children}
+    </button>
+  );
+}
+
+function KpiDetailDialog({
+  detail,
+  onOpenChange,
+  organization,
+  my2026,
+}: {
+  detail: DetailKey | null;
+  onOpenChange: (open: boolean) => void;
+  organization: AnalysisSnapshot;
+  my2026: AnalysisSnapshot;
+}) {
+  if (!detail) return null;
+  const config: Record<
+    DetailKey,
+    {
+      title: string;
+      description: string;
+      snapshot: AnalysisSnapshot;
+      filter: (record: AnalysisRecord) => boolean;
+      sort: (record: AnalysisRecord) => number;
+    }
+  > = {
+    total: {
+      title: "Total recoverable cost — program breakdown",
+      description: "Direct approved-cost fixture values grouped from parts to programs and OEMs.",
+      snapshot: organization,
+      filter: () => true,
+      sort: (record) => record.totalRecoverableCost,
+    },
+    recovered: {
+      title: "Recovered to date — program breakdown",
+      description: "Direct recovered values from the same canonical part-level source.",
+      snapshot: organization,
+      filter: () => true,
+      sort: (record) => record.recoveredToDate,
+    },
+    forecast: {
+      title: "Forecast at completion — program breakdown",
+      description: "Versioned development forecast; not an approved production provider forecast.",
+      snapshot: organization,
+      filter: () => true,
+      sort: (record) => record.forecastAtCompletion,
+    },
+    under: {
+      title: "Under-recovery exposure — evidence review",
+      description: "Gross negative program variances. Tract does not infer a claim or remedy.",
+      snapshot: organization,
+      filter: (record) => record.projectedVariance < 0,
+      sort: (record) => Math.max(-record.projectedVariance, 0),
+    },
+    over: {
+      title: "Over-recovery balance — evidence review",
+      description:
+        "Gross positive program variances. Accounting treatment remains customer-controlled.",
+      snapshot: organization,
+      filter: (record) => record.projectedVariance > 0,
+      sort: (record) => Math.max(record.projectedVariance, 0),
+    },
+    my2026: {
+      title: "Model year 2026 over-recovery review",
+      description:
+        "Direct MY 2026 synthetic allocations with the model-year filter recorded in provenance.",
+      snapshot: my2026,
+      filter: (record) => record.projectedVariance > 0,
+      sort: (record) => Math.max(record.projectedVariance, 0),
+    },
+  };
+  const selected = config[detail];
+  const rows = selected.snapshot.programRecords
+    .filter(selected.filter)
+    .sort((left, right) => selected.sort(right) - selected.sort(left));
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl" data-kpi-detail={detail}>
+        <DialogHeader>
+          <DialogTitle>{selected.title}</DialogTitle>
+          <DialogDescription>{selected.description}</DialogDescription>
+        </DialogHeader>
+        <ProvenanceLine snapshot={selected.snapshot} detailed />
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="sticky top-0 bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Program</th>
+                <th className="px-3 py-2 text-right font-medium">Recoverable cost</th>
+                <th className="px-3 py-2 text-right font-medium">Recovered</th>
+                <th className="px-3 py-2 text-right font-medium">Forecast</th>
+                <th className="px-3 py-2 text-right font-medium">Variance</th>
+                <th className="px-3 py-2 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((record) => (
+                <tr key={record.id}>
+                  <td className="px-3 py-2">
+                    <Link
+                      to="/programs"
+                      search={{ programId: record.programId }}
+                      className="font-medium text-brand hover:underline"
+                    >
+                      {record.label}
+                    </Link>
+                    <div className="text-xs text-muted-foreground">{record.secondaryLabel}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatMoney(record.totalRecoverableCost, { compact: true })}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatMoney(record.recoveredToDate, { compact: true })}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatMoney(record.forecastAtCompletion, { compact: true })}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right font-mono text-xs ${record.projectedVariance < 0 ? "text-destructive" : "text-success"}`}
+                  >
+                    {record.projectedVariance > 0 ? "+" : ""}
+                    {formatMoney(record.projectedVariance, { compact: true })}
+                  </td>
+                  <td className="px-3 py-2">
+                    <StatusPill {...statusMeta[record.status]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="sticky bottom-0 flex justify-end bg-background pt-3">
+          <Button variant="outline" onClick={() => downloadCsv(selected.snapshot)}>
+            <Download className="mr-1.5 h-4 w-4" /> Download this breakdown
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SeriesTable({ snapshot }: { snapshot: AnalysisSnapshot }) {
+  return (
+    <div
+      className="mt-4 max-h-96 overflow-auto rounded-lg border border-border"
+      data-analysis-series="table"
+    >
+      <table className="w-full min-w-[820px] text-sm">
+        <thead className="sticky top-0 bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left">Month</th>
+            <th className="px-3 py-2 text-right">Actual</th>
+            <th className="px-3 py-2 text-right">Contract curve</th>
+            <th className="px-3 py-2 text-right">Forecast</th>
+            <th className="px-3 py-2 text-right">Variance</th>
+            <th className="px-3 py-2 text-right">Cumulative recovery</th>
+            <th className="px-3 py-2 text-right">Remaining recovery</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {snapshot.series.map((period) => (
+            <tr key={period.period}>
+              <td className="px-3 py-2 font-medium">{period.period}</td>
+              <td className="px-3 py-2 text-right font-mono text-xs">
+                {period.actual === null ? "—" : formatMoney(period.actual)}
+              </td>
+              <td className="px-3 py-2 text-right font-mono text-xs">
+                {formatMoney(period.contract)}
+              </td>
+              <td className="px-3 py-2 text-right font-mono text-xs">
+                {formatMoney(period.forecast)}
+              </td>
+              <td
+                className={`px-3 py-2 text-right font-mono text-xs ${period.variance < 0 ? "text-destructive" : "text-success"}`}
+              >
+                {formatMoney(period.variance)}
+              </td>
+              <td className="px-3 py-2 text-right font-mono text-xs">
+                {formatMoney(period.cumulativeRecovery)}
+              </td>
+              <td className="px-3 py-2 text-right font-mono text-xs">
+                {formatMoney(period.remainingRecovery)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ProvenanceLine({
+  snapshot,
+  detailed = false,
+}: {
+  snapshot: AnalysisSnapshot;
+  detailed?: boolean;
+}) {
+  return (
+    <div
+      className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground"
+      data-analysis-provenance
+    >
+      <span>As of {new Date(snapshot.provenance.asOf).toLocaleString()}</span>
+      <span>{snapshot.provenance.currency}</span>
+      <span>Calculation {snapshot.provenance.calculationVersion}</span>
+      {detailed && <span>Forecast {snapshot.provenance.forecastVersion}</span>}
+      {detailed && <span>Source {snapshot.provenance.sourceVersion}</span>}
+      <span>Synthetic demonstration data</span>
+    </div>
+  );
+}
+
+function MiniMetric({
   label,
-  sortKey,
-  activeKey,
+  value,
+  signed = false,
+}: {
+  label: string;
+  value: number;
+  signed?: boolean;
+}) {
+  return (
+    <div className="rounded-lg bg-white/10 p-3">
+      <div className="text-[10px] uppercase tracking-wide text-white/55">{label}</div>
+      <div className="mt-1 font-mono text-lg font-semibold">
+        {signed && value > 0 ? "+" : ""}
+        {formatMoney(value, { compact: true })}
+      </div>
+    </div>
+  );
+}
+
+function SortHead({
+  label,
+  value,
+  active,
   direction,
   onSort,
   align = "left",
 }: {
   label: string;
-  sortKey: ProgramSortKey;
-  activeKey: ProgramSortKey;
-  direction: ProgramSortDirection;
-  onSort: (key: ProgramSortKey) => void;
+  value: SortKey;
+  active: SortKey;
+  direction: SortDirection;
+  onSort: (value: SortKey) => void;
   align?: "left" | "right";
 }) {
-  const activeDirection = activeKey === sortKey ? direction : "none";
+  const current = active === value ? direction : "none";
   const Icon =
-    activeDirection === "ascending"
-      ? ArrowUp
-      : activeDirection === "descending"
-        ? ArrowDown
-        : ArrowUpDown;
+    current === "ascending" ? ArrowUp : current === "descending" ? ArrowDown : ArrowUpDown;
   return (
     <th
       className={`px-3 py-2 font-medium ${align === "right" ? "text-right" : "text-left"}`}
-      aria-sort={activeDirection}
+      aria-sort={current}
     >
       <button
         type="button"
-        onClick={() => onSort(sortKey)}
+        onClick={() => onSort(value)}
         className="inline-flex items-center gap-1 hover:text-foreground"
       >
         {label} <Icon className="h-3 w-3" />
@@ -1352,45 +1038,10 @@ function ProgramSortHead({
   );
 }
 
-function ClickableKpi({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="block w-full text-left transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-lg"
-    >
-      {children}
-    </button>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "neutral" | "brand" | "success" | "danger";
-}) {
-  const toneClass =
-    tone === "brand"
-      ? "text-brand"
-      : tone === "success"
-        ? "text-success"
-        : tone === "danger"
-          ? "text-destructive"
-          : "text-foreground";
-  const Icon = tone === "success" ? ArrowUpRight : tone === "brand" ? ArrowUpRight : ArrowDownRight;
-
-  return (
-    <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2">
-      <div className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className={`mt-0.5 flex items-center gap-1 font-display text-lg font-bold ${toneClass}`}>
-        {tone !== "neutral" && <Icon className="h-4 w-4" />}
-        {value}
-      </div>
-    </div>
-  );
+function moneyAxis(value: number) {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (absolute >= 1_000_000) return `$${(value / 1_000_000).toFixed(0)}M`;
+  if (absolute >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return `$${value.toFixed(0)}`;
 }
