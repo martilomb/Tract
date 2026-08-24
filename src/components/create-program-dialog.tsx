@@ -55,11 +55,11 @@ export function CreateProgramDialog({ trigger }: { trigger: ReactNode }) {
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-brand" /> Create vehicle program
+            <Layers className="h-5 w-5 text-brand" /> Admin program maintenance
           </DialogTitle>
           <DialogDescription>
-            Create only the OEM vehicle or carline record. Parts, change requests, and recovery
-            agreements are separate workflows.
+            Authorized administrators only: create a controlled OEM vehicle or carline master-data
+            record. Ordinary recovery work starts in Set up / activate recovery.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -94,11 +94,11 @@ export function CreateProgramDialog({ trigger }: { trigger: ReactNode }) {
               placeholder="Vehicle carline"
             />
           </Field>
-          <Field label="Platform">
+          <Field label="Vehicle architecture (optional)">
             <Input
               value={platform}
               onChange={(event) => setPlatform(event.target.value)}
-              placeholder="Optional governed platform"
+              placeholder="Optional shared vehicle architecture"
             />
           </Field>
           <Field label="Model years">
@@ -131,13 +131,14 @@ export function CreateProgramDialog({ trigger }: { trigger: ReactNode }) {
           </Field>
         </div>
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
-          This workflow never creates a part, DCR, accrual, or financial posting.
+          This workflow never creates a part, DCR, agreement, accrual, or financial posting. Review
+          duplicate and alias suggestions before approving a confidential or unannounced program.
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={submit}>Validate program draft</Button>
+          <Button onClick={submit}>Validate admin draft</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

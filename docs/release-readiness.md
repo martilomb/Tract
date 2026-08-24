@@ -15,7 +15,7 @@ Do not substitute synonyms for the label. “Tested everything” means the docu
 
 ## Release-candidate evidence matrix
 
-Current assessment (24 August 2026): **INCREMENT COMPLETE** at published commit `885d370`, with approved scope remaining. Product-owner acceptance is explicitly not granted: the browser review reopened Milestone 10 with demonstrated overlay, accounting-aggregation, mixed-scope, and workflow defects plus approved A–G corrections. The earlier credential-free Milestone 10 pass claim is superseded. The unchecked release-candidate rows below remain unchecked until the revised implementation and documented risk-based matrix pass.
+Current assessment (24 August 2026): **INCREMENT COMPLETE** at published commit `346c23e`, with a verified canonical-analytics and staging activation-control increment in progress and approved scope remaining. Product-owner acceptance is explicitly not granted: Contracts/DCR/Operations/Settings corrections, the complete revised verification matrix, and a new localhost review remain open. The earlier credential-free Milestone 10 pass claim is superseded; release-candidate rows remain unchecked until the entire approved A–G correction and documented risk-based matrix pass.
 
 A **RELEASE CANDIDATE READY** handoff must report every row below with exact evidence, counts, and any approved deferral.
 

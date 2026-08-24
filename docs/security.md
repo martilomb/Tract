@@ -6,6 +6,8 @@ Organization membership is necessary but not sufficient for scoped resources. Ad
 
 RLS helper functions are `security definer`, live outside the exposed schemas, pin `search_path` to an empty value, and fully qualify referenced objects. This follows Supabase's current RLS hardening guidance. Service credentials are server-only and never shipped to the browser.
 
+The atomic agreement-activation function is callable only by authenticated users or the service role and rechecks organization-administrator authority inside the transaction; anonymous execution is revoked. Internal master-data existence helpers are not executable by browser roles, preventing cross-tenant identifier probing. Proposal, alias, merge, approval, and activation audit records retain the authenticated actor and reject cross-tenant entity or approver references.
+
 ## Data and documents
 
 - Tenant ids cannot be reassigned after creation.
@@ -37,3 +39,5 @@ RLS helper functions are `security definer`, live outside the exposed schemas, p
 ## Pending production decisions
 
 MFA policy, enterprise SSO, data region/residency, malware scanner, retention duration, formal control mapping, penetration testing, and customer security questionnaires require customer or account-level decisions. No formal compliance claim is made.
+
+Staging verification through migration `202608240003` reports RLS enabled on all 70 public tables, 132 public policies, no security-advisor findings, and transactional denial tests for non-admin activation, cross-tenant materiality/master-data/connector-test access, and direct Active-state bypass. These checks are representative controls, not a claim of exhaustive security proof.

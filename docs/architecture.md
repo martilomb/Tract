@@ -25,6 +25,7 @@ All analytical workspaces and exports consume one canonical analysis snapshot ra
 - Policy and workflow changes are versioned and effective-dated. Existing calculation runs retain the exact configuration and source-event references used.
 - Over-recovery remains visible but has no automatic accounting treatment.
 - Programs, model years, parts/revisions, DCRs, and recovery agreements are independent canonical records joined by tenant-bound relationships. Recovery activation and calculation require an effective approved agreement.
+- Agreement activation is one database transaction. The administrator-only `app.activate_recovery_agreement` operation locks the agreement, validates approved/effective evidence, controlled program/part links, DCR state when present, currency, and every draft accrual, then activates the agreement and valid accruals together. Any invalid row aborts the transaction; callers cannot directly set an agreement Active.
 - Vehicle-production, ERP, and document sources remain independent. Related values reconcile; no source overwrites another and one economic event cannot post twice.
 
 ## Ingestion boundary
@@ -47,7 +48,7 @@ Raw records, normalized candidates, exceptions, approvals, and postings are sepa
 ## Data modules
 
 - Identity: organizations, memberships, roles, additive permission grants.
-- Master data: departments, technical teams, OEMs, suppliers, contacts, programs/model years, parts/revisions, many-to-many applications and commodities, plants, regions, and effective part-per-vehicle/take-rate/allocation rules.
+- Master data: departments, technical teams, OEMs, vehicle makes/models/architectures, suppliers, contacts, programs/model years, parts/revisions, provider identifiers, governed proposals/aliases/merge provenance, many-to-many applications and commodities, plants, regions, and effective part-per-vehicle/take-rate/allocation rules.
 - DCR: versioned evidence-gated workflow, assignments, comments, program/model-year/part links, attachments, agreement links, transition history, notifications.
 - Recovery agreements: private originals/versions, linked programs/model years/parts/DCRs, eligible-volume basis, effective rates, approval, activation, expiry, supersession, and audit history.
 - Recovery: agreement-bound accruals, effective-dated rates, immutable volume events, calculation runs, lines, results.
@@ -57,6 +58,8 @@ Raw records, normalized candidates, exceptions, approvals, and postings are sepa
 - ERP: canonical shipments/transactions/cost values with complete original-value provenance and no inferred recoverability.
 - Documents: private versions, hashes, text/tables, extraction jobs, page/table field evidence, confidence/warnings, corrections, immutable approval and destination postings.
 - Controls: audit events, notification outbox, destination-at-delivery adapters, report manifests, approvals.
+
+Materiality rules are tenant-bound, versioned, effective-dated, permissioned, and auditable, with optional program or agreement scope. Connector test runs persist only configuration/synthetic/live test metadata and sanitized outcomes; live execution remains fail-closed until the approved interface specification and runtime secret reference exist.
 
 Recovery replay canonicalizes event/rate ordering and hashes the complete terms, policy version, rates, and source events before calculation. Identical economic inputs therefore reproduce the same SHA-256 and exact ordered lines even if an upstream collection returns records in a different order.
 

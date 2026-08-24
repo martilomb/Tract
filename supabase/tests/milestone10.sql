@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(16);
 
 select has_table('public', 'recovery_agreements', 'canonical recovery agreements exist');
 select has_table('public', 'connector_mapping_versions', 'versioned connector mappings exist');
@@ -79,6 +79,31 @@ insert into public.documents (
   '10000000-0000-0000-0000-000000000001'
 );
 
+insert into public.dcrs (
+  id, organization_id, dcr_number, title, status, initiator_user_id, program_id,
+  part_id, department_id, technical_team_id, supplier_id,
+  workflow_configuration_id, settlement_currency
+) values (
+  '64000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000001',
+  'DCR-LOCAL-M10', 'Local Milestone 10 DCR', 'draft',
+  '10000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000001',
+  '41000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000001',
+  '31000000-0000-0000-0000-000000000001',
+  '33000000-0000-0000-0000-000000000001',
+  '50000000-0000-0000-0000-000000000001', 'USD'
+);
+
+insert into public.recovery_agreement_dcrs (
+  organization_id, recovery_agreement_id, dcr_id
+) values (
+  '20000000-0000-0000-0000-000000000001',
+  '63000000-0000-0000-0000-000000000001',
+  '64000000-0000-0000-0000-000000000001'
+);
+
 update public.recovery_agreements
 set status = 'under_review'
 where id = '63000000-0000-0000-0000-000000000001';
@@ -100,36 +125,14 @@ set status = 'approved',
     approved_at = now()
 where id = '63000000-0000-0000-0000-000000000001';
 
-update public.recovery_agreements
-set status = 'active'
-where id = '63000000-0000-0000-0000-000000000001';
-
-select is(
-  (select status::text from public.recovery_agreements where id = '63000000-0000-0000-0000-000000000001'),
-  'active',
-  'evidence-backed agreement activates through the approved sequence'
-);
-
-insert into public.dcrs (
-  id, organization_id, dcr_number, title, status, initiator_user_id, program_id,
-  part_id, department_id, technical_team_id, supplier_id,
-  workflow_configuration_id, settlement_currency
-) values (
-  '64000000-0000-0000-0000-000000000001',
-  '20000000-0000-0000-0000-000000000001',
-  'DCR-LOCAL-M10', 'Local Milestone 10 DCR', 'under_review',
-  '10000000-0000-0000-0000-000000000001',
-  '40000000-0000-0000-0000-000000000001',
-  '41000000-0000-0000-0000-000000000001',
-  '30000000-0000-0000-0000-000000000001',
-  '31000000-0000-0000-0000-000000000001',
-  '33000000-0000-0000-0000-000000000001',
-  '50000000-0000-0000-0000-000000000001', 'USD'
-);
-
 update public.configuration_versions
-set payload = '{"transitions":[{"from":"under_review","to":"approved","required_document_types":["technical_evidence"],"required_assignment_roles":["reviewer","approver"],"required_approval_stages":["technical"]}]}'::jsonb
+set payload = '{"transitions":[{"from":"draft","to":"submitted"},{"from":"submitted","to":"under_review"},{"from":"under_review","to":"approved","required_document_types":["technical_evidence"],"required_assignment_roles":["reviewer","approver"],"required_approval_stages":["technical"]},{"from":"approved","to":"active"}]}'::jsonb
 where id = '50000000-0000-0000-0000-000000000001';
+
+update public.dcrs set status = 'submitted'
+where id = '64000000-0000-0000-0000-000000000001';
+update public.dcrs set status = 'under_review'
+where id = '64000000-0000-0000-0000-000000000001';
 
 select throws_ok(
   $$update public.dcrs set status = 'approved' where id = '64000000-0000-0000-0000-000000000001'$$,
@@ -197,9 +200,31 @@ select lives_ok(
     '31000000-0000-0000-0000-000000000001',
     '50000000-0000-0000-0000-000000000002',
     '63000000-0000-0000-0000-000000000001',
-    2400000, 'USD', true
+    2400000, 'USD', false
   )$$,
-  'recovery activation succeeds with an effective active agreement'
+  'a complete recovery setup remains inactive before atomic activation'
+);
+
+select lives_ok(
+  $$select app.activate_recovery_agreement('63000000-0000-0000-0000-000000000001')$$,
+  'approved agreement and complete recovery setup activate atomically'
+);
+
+select is(
+  (select status::text from public.recovery_agreements where id = '63000000-0000-0000-0000-000000000001'),
+  'active',
+  'atomic activation marks the agreement active'
+);
+
+select is(
+  (select active from public.accruals where id = '65000000-0000-0000-0000-000000000001'),
+  true,
+  'atomic activation marks the linked recovery active'
+);
+
+select lives_ok(
+  $$update public.dcrs set status = 'active' where id = '64000000-0000-0000-0000-000000000001'$$,
+  'DCR activates only after its approved agreement and linked recovery are active'
 );
 
 select throws_ok(

@@ -14,6 +14,8 @@ Operations links to the plain-language Data Connections workspace. Organization 
 
 The connection register exposes configuration state, health, last/next run, imported/rejected counts, retry count, reconciliation variance, mapping version, owner, and audit history. Every Received → Staged → Validated → Mapped → Reviewed → Approved → Posted stage is selectable and explains what is waiting, failed, changed, approved, or posted. Missing provider specifications or credentials block live tests with a specific reason while synthetic mapping and reconciliation validation remains available.
 
+Configuration and synthetic test evidence can be persisted as tenant-scoped `connector_test_runs` with sanitized outcomes and accountable actors. Live-mode persistence fails closed unless the connector has approved specification and opaque credential references. The current credential-free release correction still must consolidate Data Connections, Imports & runs, Document review, Exceptions & reconciliation, Rules & policies, and Audit/monitoring into the approved single Operations workspace and prove the complete synthetic lifecycle changes coherent state.
+
 Credentials remain server-side and runtime-only. Persist only opaque references, mask them in the interface, and exclude secrets, raw customer rows, and provider error bodies from logs. Do not enable a connector until tenant-admin permission, exact endpoint allowlisting, mapping/sample approval, idempotency, reconciliation, and provider activation evidence pass.
 
 ## Backup and recovery

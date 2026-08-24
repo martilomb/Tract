@@ -54,11 +54,12 @@ export function CreatePartRevisionDialog({ trigger }: { trigger: ReactNode }) {
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PackagePlus className="h-5 w-5 text-brand" /> Create part or revision
+            <PackagePlus className="h-5 w-5 text-brand" /> Admin part or revision maintenance
           </DialogTitle>
           <DialogDescription>
-            Add a component revision without overwriting history. A redesign links to an existing
-            DCR; it does not create a new vehicle program.
+            Authorized administrators only: add a component record or effective-dated revision
+            without overwriting history. Ordinary recovery work starts in Set up / activate
+            recovery.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -131,7 +132,7 @@ export function CreatePartRevisionDialog({ trigger }: { trigger: ReactNode }) {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={submit}>Validate part draft</Button>
+          <Button onClick={submit}>Validate admin draft</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

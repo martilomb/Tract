@@ -14,7 +14,7 @@ export type Database = {
           approved_adjustments: number;
           approved_recoverable_cost: number;
           created_at: string;
-          dcr_id: string;
+          dcr_id: string | null;
           department_id: string | null;
           id: string;
           organization_id: string;
@@ -31,7 +31,7 @@ export type Database = {
           approved_adjustments?: number;
           approved_recoverable_cost: number;
           created_at?: string;
-          dcr_id: string;
+          dcr_id?: string | null;
           department_id?: string | null;
           id?: string;
           organization_id: string;
@@ -48,7 +48,7 @@ export type Database = {
           approved_adjustments?: number;
           approved_recoverable_cost?: number;
           created_at?: string;
-          dcr_id?: string;
+          dcr_id?: string | null;
           department_id?: string | null;
           id?: string;
           organization_id?: string;
@@ -639,6 +639,90 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "connector_mapping_versions";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      connector_test_runs: {
+        Row: {
+          attempted_by: string | null;
+          completed_at: string | null;
+          configuration_hash: string | null;
+          connector_id: string;
+          created_at: string;
+          endpoint_host: string | null;
+          id: string;
+          mapping_version_id: string | null;
+          mode: string;
+          organization_id: string;
+          result_summary: Json;
+          started_at: string;
+          status: string;
+        };
+        Insert: {
+          attempted_by?: string | null;
+          completed_at?: string | null;
+          configuration_hash?: string | null;
+          connector_id: string;
+          created_at?: string;
+          endpoint_host?: string | null;
+          id?: string;
+          mapping_version_id?: string | null;
+          mode: string;
+          organization_id: string;
+          result_summary?: Json;
+          started_at?: string;
+          status?: string;
+        };
+        Update: {
+          attempted_by?: string | null;
+          completed_at?: string | null;
+          configuration_hash?: string | null;
+          connector_id?: string;
+          created_at?: string;
+          endpoint_host?: string | null;
+          id?: string;
+          mapping_version_id?: string | null;
+          mode?: string;
+          organization_id?: string;
+          result_summary?: Json;
+          started_at?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "connector_test_runs_connector_id_fkey";
+            columns: ["connector_id"];
+            isOneToOne: false;
+            referencedRelation: "connectors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "connector_test_runs_mapping_version_id_fkey";
+            columns: ["mapping_version_id"];
+            isOneToOne: false;
+            referencedRelation: "connector_mapping_versions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "connector_test_runs_organization_id_connector_id_fkey";
+            columns: ["organization_id", "connector_id"];
+            isOneToOne: false;
+            referencedRelation: "connectors";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "connector_test_runs_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "connector_test_runs_organization_id_mapping_version_id_fkey";
+            columns: ["organization_id", "mapping_version_id"];
+            isOneToOne: false;
+            referencedRelation: "connector_mapping_versions";
+            referencedColumns: ["organization_id", "id"];
           },
         ];
       };
@@ -2729,6 +2813,259 @@ export type Database = {
           },
         ];
       };
+      master_data_aliases: {
+        Row: {
+          alias: string;
+          approved_at: string;
+          approved_by: string;
+          created_at: string;
+          effective_from: string | null;
+          effective_to: string | null;
+          entity_id: string;
+          entity_type: string;
+          id: string;
+          organization_id: string;
+          provenance: Json;
+          provider_identifier: string | null;
+          provider_key: string | null;
+        };
+        Insert: {
+          alias: string;
+          approved_at: string;
+          approved_by: string;
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          entity_id: string;
+          entity_type: string;
+          id?: string;
+          organization_id: string;
+          provenance?: Json;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
+        };
+        Update: {
+          alias?: string;
+          approved_at?: string;
+          approved_by?: string;
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          entity_id?: string;
+          entity_type?: string;
+          id?: string;
+          organization_id?: string;
+          provenance?: Json;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "master_data_aliases_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      master_data_merge_events: {
+        Row: {
+          approved_by: string;
+          canonical_entity_id: string;
+          entity_type: string;
+          id: string;
+          occurred_at: string;
+          organization_id: string;
+          provenance: Json;
+          reason: string;
+          source_entity_id: string;
+        };
+        Insert: {
+          approved_by: string;
+          canonical_entity_id: string;
+          entity_type: string;
+          id?: string;
+          occurred_at?: string;
+          organization_id: string;
+          provenance?: Json;
+          reason: string;
+          source_entity_id: string;
+        };
+        Update: {
+          approved_by?: string;
+          canonical_entity_id?: string;
+          entity_type?: string;
+          id?: string;
+          occurred_at?: string;
+          organization_id?: string;
+          provenance?: Json;
+          reason?: string;
+          source_entity_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "master_data_merge_events_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      master_data_proposals: {
+        Row: {
+          created_at: string;
+          duplicate_candidate_ids: string[];
+          entity_type: string;
+          exception_reason: string;
+          id: string;
+          organization_id: string;
+          proposed_by: string | null;
+          proposed_payload: Json;
+          provenance: Json;
+          resulting_entity_id: string | null;
+          review_reason: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          duplicate_candidate_ids?: string[];
+          entity_type: string;
+          exception_reason: string;
+          id?: string;
+          organization_id: string;
+          proposed_by?: string | null;
+          proposed_payload: Json;
+          provenance?: Json;
+          resulting_entity_id?: string | null;
+          review_reason?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          duplicate_candidate_ids?: string[];
+          entity_type?: string;
+          exception_reason?: string;
+          id?: string;
+          organization_id?: string;
+          proposed_by?: string | null;
+          proposed_payload?: Json;
+          provenance?: Json;
+          resulting_entity_id?: string | null;
+          review_reason?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "master_data_proposals_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      materiality_rules: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          currency: string | null;
+          effective_from: string;
+          effective_to: string | null;
+          id: string;
+          metric: string;
+          organization_id: string;
+          rationale: string;
+          scope_id: string | null;
+          scope_type: string;
+          status: Database["public"]["Enums"]["configuration_status"];
+          supersedes_id: string | null;
+          threshold_amount: number | null;
+          threshold_days: number | null;
+          threshold_percentage: number | null;
+          updated_at: string;
+          version: number;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string | null;
+          effective_from: string;
+          effective_to?: string | null;
+          id?: string;
+          metric: string;
+          organization_id: string;
+          rationale: string;
+          scope_id?: string | null;
+          scope_type?: string;
+          status?: Database["public"]["Enums"]["configuration_status"];
+          supersedes_id?: string | null;
+          threshold_amount?: number | null;
+          threshold_days?: number | null;
+          threshold_percentage?: number | null;
+          updated_at?: string;
+          version: number;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string | null;
+          effective_from?: string;
+          effective_to?: string | null;
+          id?: string;
+          metric?: string;
+          organization_id?: string;
+          rationale?: string;
+          scope_id?: string | null;
+          scope_type?: string;
+          status?: Database["public"]["Enums"]["configuration_status"];
+          supersedes_id?: string | null;
+          threshold_amount?: number | null;
+          threshold_days?: number | null;
+          threshold_percentage?: number | null;
+          updated_at?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "materiality_rules_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "materiality_rules_organization_id_supersedes_id_fkey";
+            columns: ["organization_id", "supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "materiality_rules";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "materiality_rules_supersedes_id_fkey";
+            columns: ["supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "materiality_rules";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       memberships: {
         Row: {
           active: boolean;
@@ -3465,6 +3802,8 @@ export type Database = {
           model_year: number;
           organization_id: string;
           program_id: string;
+          provider_identifier: string | null;
+          provider_key: string | null;
           start_date: string | null;
           updated_at: string;
         };
@@ -3475,6 +3814,8 @@ export type Database = {
           model_year: number;
           organization_id: string;
           program_id: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
           start_date?: string | null;
           updated_at?: string;
         };
@@ -3485,6 +3826,8 @@ export type Database = {
           model_year?: number;
           organization_id?: string;
           program_id?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
           start_date?: string | null;
           updated_at?: string;
         };
@@ -3516,41 +3859,59 @@ export type Database = {
         Row: {
           code: string;
           created_at: string;
+          creation_path: string;
           department_id: string | null;
           end_date: string | null;
+          exception_proposal_id: string | null;
           id: string;
           name: string;
           oem_id: string | null;
           organization_id: string;
+          provider_identifier: string | null;
+          provider_key: string | null;
           start_date: string | null;
           technical_team_id: string | null;
           updated_at: string;
+          vehicle_architecture_id: string | null;
+          vehicle_model_id: string | null;
         };
         Insert: {
           code: string;
           created_at?: string;
+          creation_path?: string;
           department_id?: string | null;
           end_date?: string | null;
+          exception_proposal_id?: string | null;
           id?: string;
           name: string;
           oem_id?: string | null;
           organization_id: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
           start_date?: string | null;
           technical_team_id?: string | null;
           updated_at?: string;
+          vehicle_architecture_id?: string | null;
+          vehicle_model_id?: string | null;
         };
         Update: {
           code?: string;
           created_at?: string;
+          creation_path?: string;
           department_id?: string | null;
           end_date?: string | null;
+          exception_proposal_id?: string | null;
           id?: string;
           name?: string;
           oem_id?: string | null;
           organization_id?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
           start_date?: string | null;
           technical_team_id?: string | null;
           updated_at?: string;
+          vehicle_architecture_id?: string | null;
+          vehicle_model_id?: string | null;
         };
         Relationships: [
           {
@@ -3565,6 +3926,20 @@ export type Database = {
             columns: ["organization_id", "department_id"];
             isOneToOne: false;
             referencedRelation: "departments";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "programs_exception_proposal_id_fkey";
+            columns: ["exception_proposal_id"];
+            isOneToOne: false;
+            referencedRelation: "master_data_proposals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "programs_exception_proposal_same_tenant";
+            columns: ["organization_id", "exception_proposal_id"];
+            isOneToOne: false;
+            referencedRelation: "master_data_proposals";
             referencedColumns: ["organization_id", "id"];
           },
           {
@@ -3601,6 +3976,34 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "technical_teams";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "programs_vehicle_architecture_id_fkey";
+            columns: ["vehicle_architecture_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_architectures";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "programs_vehicle_architecture_same_tenant";
+            columns: ["organization_id", "vehicle_architecture_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_architectures";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "programs_vehicle_model_id_fkey";
+            columns: ["vehicle_model_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_models";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "programs_vehicle_model_same_tenant";
+            columns: ["organization_id", "vehicle_model_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_models";
+            referencedColumns: ["organization_id", "id"];
           },
         ];
       };
@@ -4370,35 +4773,194 @@ export type Database = {
           },
         ];
       };
-      vehicle_models: {
+      vehicle_architectures: {
         Row: {
           code: string;
           created_at: string;
+          effective_from: string | null;
+          effective_to: string | null;
           id: string;
           name: string;
-          oem_id: string;
+          oem_id: string | null;
           organization_id: string;
+          provenance_status: string;
+          provider_identifier: string | null;
+          provider_key: string | null;
           updated_at: string;
         };
         Insert: {
           code: string;
           created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
           id?: string;
           name: string;
-          oem_id: string;
+          oem_id?: string | null;
           organization_id: string;
+          provenance_status?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
           updated_at?: string;
         };
         Update: {
           code?: string;
           created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          id?: string;
+          name?: string;
+          oem_id?: string | null;
+          organization_id?: string;
+          provenance_status?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_architectures_oem_id_fkey";
+            columns: ["oem_id"];
+            isOneToOne: false;
+            referencedRelation: "oems";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_architectures_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_architectures_organization_id_oem_id_fkey";
+            columns: ["organization_id", "oem_id"];
+            isOneToOne: false;
+            referencedRelation: "oems";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      vehicle_makes: {
+        Row: {
+          created_at: string;
+          effective_from: string | null;
+          effective_to: string | null;
+          id: string;
+          name: string;
+          oem_id: string;
+          organization_id: string;
+          provenance_status: string;
+          provider_identifier: string | null;
+          provider_key: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          id?: string;
+          name: string;
+          oem_id: string;
+          organization_id: string;
+          provenance_status?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
           id?: string;
           name?: string;
           oem_id?: string;
           organization_id?: string;
+          provenance_status?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "vehicle_makes_oem_id_fkey";
+            columns: ["oem_id"];
+            isOneToOne: false;
+            referencedRelation: "oems";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_makes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_makes_organization_id_oem_id_fkey";
+            columns: ["organization_id", "oem_id"];
+            isOneToOne: false;
+            referencedRelation: "oems";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      vehicle_models: {
+        Row: {
+          code: string;
+          created_at: string;
+          effective_from: string | null;
+          effective_to: string | null;
+          id: string;
+          name: string;
+          oem_id: string;
+          organization_id: string;
+          provenance_status: string;
+          provider_identifier: string | null;
+          provider_key: string | null;
+          updated_at: string;
+          vehicle_architecture_id: string | null;
+          vehicle_make_id: string | null;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          id?: string;
+          name: string;
+          oem_id: string;
+          organization_id: string;
+          provenance_status?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
+          updated_at?: string;
+          vehicle_architecture_id?: string | null;
+          vehicle_make_id?: string | null;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          id?: string;
+          name?: string;
+          oem_id?: string;
+          organization_id?: string;
+          provenance_status?: string;
+          provider_identifier?: string | null;
+          provider_key?: string | null;
+          updated_at?: string;
+          vehicle_architecture_id?: string | null;
+          vehicle_make_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_models_architecture_same_tenant";
+            columns: ["organization_id", "vehicle_architecture_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_architectures";
+            referencedColumns: ["organization_id", "id"];
+          },
           {
             foreignKeyName: "vehicle_models_oem_id_fkey";
             columns: ["oem_id"];
@@ -4418,6 +4980,27 @@ export type Database = {
             columns: ["organization_id", "oem_id"];
             isOneToOne: false;
             referencedRelation: "oems";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "vehicle_models_vehicle_architecture_id_fkey";
+            columns: ["vehicle_architecture_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_architectures";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_models_vehicle_make_id_fkey";
+            columns: ["vehicle_make_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_makes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_models_vehicle_make_same_tenant";
+            columns: ["organization_id", "vehicle_make_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicle_makes";
             referencedColumns: ["organization_id", "id"];
           },
         ];

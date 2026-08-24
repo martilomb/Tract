@@ -1,562 +1,407 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AppShell } from "@/components/app-shell";
-import { StatCard } from "@/components/stat-card";
-import { formatMoney, getYearlyStatus, yearBucketMeta, type Program } from "@/lib/demo-data";
-import { useDataset } from "@/lib/commodity";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
   ResponsiveContainer,
-  Tooltip as ReTooltip,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  FileText,
-  DollarSign,
-  ShieldCheck,
-  Send,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Paperclip,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { YearlyStatusRow } from "@/components/model-year-status";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { OemMark } from "@/components/oem-badge";
+import { Download, FileText, Paperclip, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
 import {
   HierarchicalProgramSelector,
   type HierarchySelection,
 } from "@/components/hierarchical-program-selector";
+import { StatCard, StatusPill } from "@/components/stat-card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { formatMoney } from "@/lib/demo-data";
+import { useDataset } from "@/lib/commodity";
+import { useAnalysis } from "@/hooks/use-analysis";
+import {
+  DEFAULT_ANALYSIS_SCOPE,
+  type AnalysisRecord,
+  type AnalysisSnapshot,
+} from "@/domain/analytics";
+import { createEvidenceManifest, toCsv } from "@/domain/reports";
+
+type RecoverySearch = {
+  oem?: string;
+  programId?: string;
+  modelYear?: number;
+  partId?: string;
+};
 
 export const Route = createFileRoute("/recoveries")({
   component: RecoveriesPage,
+  validateSearch: (search: Record<string, unknown>): RecoverySearch => ({
+    oem: typeof search.oem === "string" ? search.oem : undefined,
+    programId: typeof search.programId === "string" ? search.programId : undefined,
+    modelYear:
+      Number.isInteger(Number(search.modelYear)) && Number(search.modelYear) >= 1900
+        ? Number(search.modelYear)
+        : undefined,
+    partId: typeof search.partId === "string" ? search.partId : undefined,
+  }),
 });
-
-interface OverRecoveryReviewRow {
-  program: Program;
-  amount: number;
-  observedThrough: string;
-  evidence: string[];
-}
-
-function buildReviewCandidates(programs: Program[]): OverRecoveryReviewRow[] {
-  return programs
-    .filter((p) => p.forecastRecovery > p.totalAmortized)
-    .map((p) => {
-      const totalOver = p.forecastRecovery - p.totalAmortized;
-      return {
-        program: p,
-        amount: totalOver,
-        observedThrough: "Development scenario",
-        evidence: [
-          "Staged volume-event ledger",
-          "Contract evidence placeholder",
-          "Recovery calculation manifest",
-          "Versioned scenario provenance",
-        ],
-      };
-    })
-    .sort((a, b) => b.amount - a.amount);
-}
+const DISPLAY_LIMIT = 40;
 
 function RecoveriesPage() {
-  const { programs: allPrograms } = useDataset();
-  const [hierarchy, setHierarchy] = useState<HierarchySelection>({
-    oem: "all",
-    programId: "all",
-    modelYear: "all",
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { programs, parts } = useDataset();
+  const [selection, setSelection] = useState<HierarchySelection>({
+    oem: search.oem ?? "all",
+    programId: search.programId ?? "all",
+    modelYear: search.modelYear === undefined ? "all" : String(search.modelYear),
+    partId: search.partId ?? "all",
   });
-  const [programPage, setProgramPage] = useState(1);
-  const programs = useMemo(
-    () =>
-      allPrograms.filter(
-        (program) =>
-          (hierarchy.oem === "all" || program.oem === hierarchy.oem) &&
-          (hierarchy.programId === "all" || program.id === hierarchy.programId),
-      ),
-    [allPrograms, hierarchy.oem, hierarchy.programId],
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
+  const [evidenceRecord, setEvidenceRecord] = useState<AnalysisRecord | null>(null);
+  const snapshot = useAnalysis({
+    ...DEFAULT_ANALYSIS_SCOPE,
+    dimension: "part",
+    oem: selection.oem,
+    programId: selection.programId,
+    modelYear: selection.modelYear === "all" ? "all" : Number(selection.modelYear),
+    partId: selection.partId ?? "all",
+  });
+  const under = useMemo(
+    () => snapshot.partRecords.filter((row) => row.projectedVariance < 0).sort(byMagnitude),
+    [snapshot.partRecords],
   );
-  const programPageCount = Math.max(1, Math.ceil(programs.length / 25));
-  const safeProgramPage = Math.min(programPage, programPageCount);
-  const visiblePrograms = programs.slice((safeProgramPage - 1) * 25, safeProgramPage * 25);
-  const rows = programs.map((p) => ({
-    name: p.name,
-    delta: p.forecastRecovery - p.totalAmortized,
-    status: p.status,
-  }));
-  const over = rows.filter((r) => r.delta > 0);
-  const under = rows.filter((r) => r.delta < 0);
-  const totalOver = over.reduce((s, r) => s + r.delta, 0);
-  const totalUnder = under.reduce((s, r) => s + r.delta, 0);
-  const chartRows = visiblePrograms.map((p) => ({
-    name: p.name,
-    delta: p.forecastRecovery - p.totalAmortized,
-    status: p.status,
-  }));
-
-  const reviewCandidates = useMemo(() => buildReviewCandidates(visiblePrograms), [visiblePrograms]);
-  const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(reviewCandidates.map((r) => [r.program.id, true])),
+  const over = useMemo(
+    () => snapshot.partRecords.filter((row) => row.projectedVariance > 0).sort(byMagnitude),
+    [snapshot.partRecords],
   );
-  const [memo, setMemo] = useState(
-    "Review the selected over-recovery balances, source events, effective rates, and contract evidence. No financial posting, profit release, or clawback action is authorized by this package.",
-  );
-  const [lastPrepared, setLastPrepared] = useState<string | null>(null);
-
-  const selectedRows = reviewCandidates.filter((r) => selected[r.program.id]);
-  const submissionTotal = selectedRows.reduce((s, r) => s + r.amount, 0);
-
-  const handlePrepare = () => {
-    if (!selectedRows.length) {
-      toast.error("Select at least one program to review.");
-      return;
-    }
-    const id = `REV-${Math.floor(Math.random() * 9000 + 1000)}`;
-    setLastPrepared(id);
-    toast.info(`Prepared ${formatMoney(submissionTotal, { compact: true })} for review`, {
-      description: `Demo package ${id} · ${selectedRows.length} programs · not persisted or submitted`,
+  const selected = over.filter((record) => selectedIds[record.id]);
+  const display = [...under, ...over].sort(byMagnitude).slice(0, DISPLAY_LIMIT);
+  const updateScope = (next: HierarchySelection) => {
+    setSelection(next);
+    void navigate({
+      search: {
+        oem: next.oem === "all" ? undefined : next.oem,
+        programId: next.programId === "all" ? undefined : next.programId,
+        modelYear: next.modelYear === "all" ? undefined : Number(next.modelYear),
+        partId: !next.partId || next.partId === "all" ? undefined : next.partId,
+      },
     });
   };
-
+  const exportScope = () =>
+    download(
+      `tract-recovery-scope-${snapshot.provenance.asOf.slice(0, 10)}.csv`,
+      toCsv(snapshot.partRecords.map((record) => csvRow(snapshot, record))),
+    );
+  const exportPackage = () => {
+    if (!selected.length) return;
+    const manifest = createEvidenceManifest({
+      organizationId: snapshot.provenance.organization,
+      reportType: "over-recovery-evidence-review",
+      generatedAt: snapshot.provenance.asOf,
+      generatedBy: "Synthetic demonstration user",
+      policyVersions: [snapshot.provenance.calculationVersion, snapshot.provenance.forecastVersion],
+      calculationRunIds: [snapshot.provenance.sourceVersion],
+      documentHashes: selected.flatMap((record) => record.evidenceIds),
+    });
+    const body = selected.map((record) => ({
+      ...csvRow(snapshot, record),
+      "Review outcome": "Unreviewed — no remedy or posting inferred",
+    }));
+    download(
+      `tract-over-recovery-review-${snapshot.provenance.asOf.slice(0, 10)}.csv`,
+      `Evidence manifest\r\n${JSON.stringify(manifest)}\r\n\r\n${toCsv(body)}\r\n`,
+    );
+  };
   return (
     <AppShell
       title="Recovery Reviews"
-      description="Compare approved recovery terms with actuals and forecasts, then route variances for evidence-backed review."
+      description="Evidence-first review of under- and over-recovery. Amounts are deterministic synthetic calculations, not financial postings."
       actions={
-        <Button
-          size="sm"
-          disabled
-          title="Claim workflow unavailable: approved eligibility rules, templates, and submission authority have not been provided"
-        >
-          <FileText className="mr-1.5 h-4 w-4" /> Claim workflow unavailable
+        <Button size="sm" variant="outline" onClick={() => window.print()}>
+          <FileText className="mr-1.5 h-4 w-4" /> Print current scope
         </Button>
       }
     >
-      <div className="mb-5 card-elevated p-4">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          OEM → program / model → model year
+      <section className="card-elevated p-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Analytical scope · OEM → program / model → model year → part number
+        </h2>
+        <div className="mt-3">
+          <HierarchicalProgramSelector
+            programs={programs}
+            parts={parts}
+            showPart
+            value={selection}
+            onChange={updateScope}
+          />
         </div>
-        <HierarchicalProgramSelector
-          programs={allPrograms}
-          value={hierarchy}
-          onChange={(selection) => {
-            setHierarchy(selection);
-            setProgramPage(1);
-          }}
-        />
-        <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            Showing {programs.length === 0 ? 0 : (safeProgramPage - 1) * 25 + 1}–
-            {Math.min(safeProgramPage * 25, programs.length)} of {programs.length} matching programs
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={safeProgramPage === 1}
-              onClick={() => setProgramPage((current) => Math.max(1, current - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" /> Previous
-            </Button>
-            <span className="font-mono">
-              Page {safeProgramPage} of {programPageCount}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={safeProgramPage === programPageCount}
-              onClick={() => setProgramPage((current) => Math.min(programPageCount, current + 1))}
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
+        <Provenance snapshot={snapshot} />
+      </section>
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
         <StatCard
           label="Projected under-recovery"
-          value={formatMoney(Math.abs(totalUnder), { compact: true })}
-          delta={14.2}
-          deltaLabel="requires contract review"
+          value={formatMoney(snapshot.metrics.underRecovery, { compact: true })}
+          delta={0}
+          deltaLabel="evidence review required"
           icon={<TrendingDown className="h-5 w-5" />}
           accent="destructive"
         />
         <StatCard
           label="Projected over-recovery"
-          value={formatMoney(totalOver, { compact: true })}
-          delta={6.8}
-          deltaLabel="control review"
+          value={formatMoney(snapshot.metrics.overRecovery, { compact: true })}
+          delta={0}
+          deltaLabel="evidence review required"
           icon={<TrendingUp className="h-5 w-5" />}
           accent="success"
         />
         <StatCard
-          label="Balances awaiting review"
-          value={formatMoney(totalOver + Math.abs(totalUnder), { compact: true })}
+          label="Net projected variance"
+          value={formatMoney(snapshot.metrics.projectedVariance, { compact: true })}
           delta={0}
-          deltaLabel="no treatment inferred"
-          icon={<DollarSign className="h-5 w-5" />}
+          deltaLabel={`${snapshot.partRecords.length} matching part records`}
+          icon={<ShieldCheck className="h-5 w-5" />}
           accent="brand"
         />
       </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-5">
-        <div className="card-elevated p-5 lg:col-span-3">
-          <h2 className="text-base font-semibold">Forecast vs. contract by program</h2>
-          <p className="text-xs text-muted-foreground">
-            Positive = projected over-recovery. Negative = projected under-recovery. Neither assigns
-            a remedy or accounting treatment.
-          </p>
-          <div className="mt-4 h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartRows} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="oklch(0.9 0.01 250)"
-                  horizontal={false}
-                />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(v) => `$${(v / 1_000_000).toFixed(1)}M`}
-                />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={140} />
-                <ReTooltip
-                  contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                  formatter={(value) => formatMoney(Number(value ?? 0))}
-                />
-                <Bar dataKey="delta" radius={[0, 4, 4, 0]}>
-                  {chartRows.map((r, i) => (
-                    <Cell
-                      key={i}
-                      fill={r.delta >= 0 ? "oklch(0.62 0.15 155)" : "oklch(0.6 0.22 27)"}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+      <section className="mt-6 card-elevated p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Projected variance by part number</h2>
+            <p className="text-xs text-muted-foreground">
+              Top {Math.min(DISPLAY_LIMIT, snapshot.partRecords.length)} material records from the
+              same unpaginated scope; exports retain the full scope.
+            </p>
           </div>
+          <Button variant="outline" size="sm" onClick={exportScope}>
+            <Download className="mr-1.5 h-4 w-4" /> Export current scope
+          </Button>
         </div>
-
-        <div className="card-elevated p-5 lg:col-span-2">
-          <h2 className="text-base font-semibold">Under-recovery review queue</h2>
-          <p className="text-xs text-muted-foreground">
-            Contract evidence and approved business rules are required before any remedy workflow.
+        <div className="mt-4 h-[28rem]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={display} layout="vertical" margin={{ left: 12, right: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(value) => formatMoney(Number(value), { compact: true })}
+              />
+              <YAxis type="category" dataKey="label" width={120} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
+              <Bar dataKey="projectedVariance" name="Projected variance" radius={[0, 4, 4, 0]}>
+                {display.map((record) => (
+                  <Cell
+                    key={record.id}
+                    fill={
+                      record.projectedVariance >= 0 ? "oklch(0.62 0.15 155)" : "oklch(0.6 0.22 27)"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <ReviewQueue
+          title="Under-recovery review queue"
+          records={under}
+          tone="under"
+          onEvidence={setEvidenceRecord}
+        />
+        <ReviewQueue
+          title="Over-recovery review queue"
+          records={over}
+          tone="over"
+          selectable
+          selected={selectedIds}
+          onSelect={(id, checked) => setSelectedIds((current) => ({ ...current, [id]: checked }))}
+          onEvidence={setEvidenceRecord}
+        />
+      </div>
+      <section className="mt-6 card-elevated overflow-hidden">
+        <div className="gradient-navy px-5 py-4">
+          <h2 className="text-lg font-bold text-white">
+            Download selected over-recovery review package
+          </h2>
+          <p className="mt-1 text-xs text-white/70">
+            Selection produces a deterministic, scoped CSV evidence package. It does not post,
+            release profit, issue a claim, or prescribe a remedy.
           </p>
-          <div className="mt-4 space-y-3">
-            {under.slice(0, 10).map((r, i) => (
-              <div key={i} className="rounded-lg border border-border p-3">
-                <div className="flex items-start justify-between">
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="text-sm">
+            <strong>{selected.length}</strong> selected ·{" "}
+            <strong>
+              {formatMoney(
+                selected.reduce((total, record) => total + record.projectedVariance, 0),
+                { compact: true },
+              )}
+            </strong>{" "}
+            projected over-recovery
+          </div>
+          <Button disabled={!selected.length} onClick={exportPackage}>
+            <Download className="mr-1.5 h-4 w-4" /> Download review package
+          </Button>
+        </div>
+      </section>
+      {evidenceRecord && (
+        <section className="mt-6 card-elevated p-5" aria-live="polite">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">
+                Evidence and calculation provenance · {evidenceRecord.label}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {evidenceRecord.secondaryLabel} · {formatMoney(evidenceRecord.projectedVariance)}{" "}
+                projected variance
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setEvidenceRecord(null)}>
+              Close evidence
+            </Button>
+          </div>
+          <ul className="mt-4 space-y-2 text-sm">
+            {evidenceRecord.evidenceIds.map((id) => (
+              <li key={id} className="flex items-center gap-2">
+                <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                {id}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Private agreement originals require permission-checked access in Contracts. This
+            synthetic fixture lists references only.
+          </p>
+        </section>
+      )}
+    </AppShell>
+  );
+}
+function byMagnitude(left: AnalysisRecord, right: AnalysisRecord) {
+  return Math.abs(right.projectedVariance) - Math.abs(left.projectedVariance);
+}
+function csvRow(snapshot: AnalysisSnapshot, record: AnalysisRecord) {
+  return {
+    "Demo data": "Synthetic — not persisted or live",
+    Organization: snapshot.provenance.organization,
+    Scope: snapshot.scopeLabel,
+    "As of": snapshot.provenance.asOf,
+    Currency: snapshot.provenance.currency,
+    "Calculation version": snapshot.provenance.calculationVersion,
+    "Forecast version": snapshot.provenance.forecastVersion,
+    Record: record.label,
+    Context: record.secondaryLabel,
+    "Recoverable cost": record.totalRecoverableCost.toFixed(2),
+    "Recovered to date": record.recoveredToDate.toFixed(2),
+    "Forecast at completion": record.forecastAtCompletion.toFixed(2),
+    "Projected variance": record.projectedVariance.toFixed(2),
+    "Evidence references": record.evidenceIds.join(" | "),
+  };
+}
+function Provenance({ snapshot }: { snapshot: AnalysisSnapshot }) {
+  return (
+    <p className="mt-3 text-xs text-muted-foreground">
+      {snapshot.scopeLabel} · As of {new Date(snapshot.provenance.asOf).toLocaleString()} ·{" "}
+      {snapshot.provenance.currency} · Calculation {snapshot.provenance.calculationVersion} ·
+      Forecast {snapshot.provenance.forecastVersion} · Synthetic demonstration data
+    </p>
+  );
+}
+function ReviewQueue({
+  title,
+  records,
+  tone,
+  selectable = false,
+  selected = {},
+  onSelect,
+  onEvidence,
+}: {
+  title: string;
+  records: AnalysisRecord[];
+  tone: "under" | "over";
+  selectable?: boolean;
+  selected?: Record<string, boolean>;
+  onSelect?: (id: string, checked: boolean) => void;
+  onEvidence: (record: AnalysisRecord) => void;
+}) {
+  const rows = records.slice(0, 12);
+  return (
+    <section className="card-elevated p-5">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <p className="text-xs text-muted-foreground">
+        {records.length} matching records · neutral evidence review; no accounting treatment is
+        inferred.
+      </p>
+      <div className="mt-4 max-h-[34rem] space-y-2 overflow-y-auto pr-1">
+        {rows.map((record) => (
+          <div key={record.id} className="rounded-lg border border-border p-3">
+            <div className="flex items-start gap-3">
+              {selectable && (
+                <Checkbox
+                  aria-label={`Select ${record.label} for review-package download`}
+                  checked={Boolean(selected[record.id])}
+                  onCheckedChange={(checked) => onSelect?.(record.id, Boolean(checked))}
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold">{r.name}</div>
-                    <div className="text-xs text-muted-foreground">Under-recovery projected</div>
+                    <div className="font-medium">{record.label}</div>
+                    <div className="text-xs text-muted-foreground">{record.secondaryLabel}</div>
                   </div>
-                  <div className="font-mono text-sm font-bold text-destructive">
-                    {formatMoney(r.delta, { compact: true })}
+                  <div
+                    className={
+                      tone === "under"
+                        ? "font-mono text-sm font-semibold text-destructive"
+                        : "font-mono text-sm font-semibold text-success"
+                    }
+                  >
+                    {record.projectedVariance > 0 ? "+" : ""}
+                    {formatMoney(record.projectedVariance, { compact: true })}
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <StatusPill {...{ label: record.status, className: "", dot: "" }} />
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs"
-                    disabled
-                    title="Persisted agreement and calculation evidence are required"
+                    onClick={() => onEvidence(record)}
                   >
-                    View evidence
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs"
-                    disabled
-                    title="Approved remedy rules and submission authority are required"
-                  >
-                    Remedy workflow unavailable
+                    <Paperclip className="mr-1 h-3 w-3" /> View evidence
                   </Button>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        ))}
+        {!rows.length && (
+          <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+            No matching records require this review.
+          </div>
+        )}
       </div>
-
-      {/* ---- Over-recovery review package ---- */}
-      <div className="mt-6 card-elevated overflow-hidden">
-        <div className="gradient-navy px-5 py-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/60">
-                <ShieldCheck className="h-3.5 w-3.5" /> Accounting review package
-              </div>
-              <h2 className="mt-0.5 text-lg font-bold text-white">Review over-recovery balances</h2>
-              <p className="mt-0.5 text-xs text-white/70">
-                Selected balances are packaged with traceability evidence. No profit release,
-                clawback, or financial posting is inferred or triggered.
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-[11px] uppercase tracking-wider text-white/60">
-                Total selected
-              </div>
-              <div className="font-mono text-2xl font-bold text-white">
-                {formatMoney(submissionTotal, { compact: true })}
-              </div>
-              {lastPrepared && (
-                <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-success/20 px-2 py-0.5 text-[11px] font-medium text-success">
-                  <CheckCircle2 className="h-3 w-3" /> Demo package {lastPrepared} prepared
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 p-5 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <div className="overflow-hidden rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="w-8 px-3 py-2"></th>
-                    <th className="px-3 py-2 text-left font-medium">Program</th>
-                    <th className="px-3 py-2 text-left font-medium">Evidence horizon</th>
-                    <th className="px-3 py-2 text-left font-medium">Evidence</th>
-                    <th className="px-3 py-2 text-right font-medium">Over-recovery</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {reviewCandidates.map((r) => (
-                    <tr key={r.program.id} className="hover:bg-secondary/30">
-                      <td className="px-3 py-3 align-top">
-                        <Checkbox
-                          aria-label={`Select ${r.program.name} for review`}
-                          checked={!!selected[r.program.id]}
-                          onCheckedChange={(v) =>
-                            setSelected((prev) => ({
-                              ...prev,
-                              [r.program.id]: !!v,
-                            }))
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="font-medium">{r.program.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {r.program.oem} · {r.program.code}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-muted-foreground">
-                        {r.observedThrough}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {r.evidence.slice(0, 2).map((e) => (
-                            <span
-                              key={e}
-                              className="inline-flex items-center gap-1 rounded border border-border bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                            >
-                              <Paperclip className="h-2.5 w-2.5" />
-                              {e}
-                            </span>
-                          ))}
-                          {r.evidence.length > 2 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              +{r.evidence.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-sm font-semibold text-success">
-                        +{formatMoney(r.amount, { compact: true })}
-                      </td>
-                    </tr>
-                  ))}
-                  {!reviewCandidates.length && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-3 py-8 text-center text-sm text-muted-foreground"
-                      >
-                        No programs with over-recovery in this commodity.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <Label
-                htmlFor="review-memo"
-                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-              >
-                Reviewer memo
-              </Label>
-              <Textarea
-                id="review-memo"
-                className="mt-1 min-h-32 text-sm"
-                value={memo}
-                onChange={(e) => setMemo(e.target.value)}
-              />
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/40 p-3 text-xs">
-              <div className="font-semibold text-foreground">Auto-attached evidence pack</div>
-              <ul className="mt-2 space-y-1 text-muted-foreground">
-                <li>· Immutable volume-event references</li>
-                <li>· Effective-dated recovery-rate references</li>
-                <li>· Calculation run and input hash</li>
-                <li>· Versioned forecast-scenario provenance</li>
-              </ul>
-            </div>
-            <Button className="w-full" onClick={handlePrepare}>
-              <Send className="mr-1.5 h-4 w-4" />
-              Prepare demo review package
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* ---- Recovery by model year across carlines ---- */}
-      <div className="mt-6 card-elevated p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-base font-semibold">Recovery by model year</h2>
-            <p className="text-xs text-muted-foreground">
-              Historical demonstration buckets show recovered, under-recovered, and over-recovered
-              balances without inferring an accounting treatment.
-            </p>
-          </div>
-          <YearLegend />
-        </div>
-        <div className="mt-4 overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Carline</th>
-                <th className="px-3 py-2 text-center font-medium">2022 – 2026</th>
-                <th className="px-3 py-2 text-right font-medium">2022 net</th>
-                <th className="px-3 py-2 text-right font-medium">2023–24 net</th>
-                <th className="px-3 py-2 text-right font-medium">2025–26 progress</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {visiblePrograms.map((p) => {
-                const ys = getYearlyStatus(p);
-                const y22 = ys.find((y) => y.year === 2022);
-                const mid = ys
-                  .filter((y) => y.year === 2023 || y.year === 2024)
-                  .reduce((s, y) => s + y.delta, 0);
-                const late = ys.filter((y) => y.year === 2025 || y.year === 2026);
-                const lateProgressPct = late.length
-                  ? Math.round(
-                      (late.reduce((s, y) => s + y.recovered, 0) /
-                        Math.max(
-                          1,
-                          late.reduce((s, y) => s + y.amortizedTarget, 0),
-                        )) *
-                        100,
-                    )
-                  : 0;
-                return (
-                  <tr key={p.id} className="hover:bg-secondary/30">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <OemMark oem={p.oem} size="sm" />
-                        <div className="min-w-0">
-                          <div className="truncate text-[13px] font-medium leading-tight">
-                            {p.name}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {p.oem} · {p.code}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="mx-auto max-w-md">
-                        <YearlyStatusRow program={p} compact />
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-xs">
-                      {!y22 || y22.bucket === "not-in-production" ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span
-                          className={
-                            "font-semibold " +
-                            (y22.delta >= 0 ? "text-success" : "text-destructive")
-                          }
-                        >
-                          {y22.delta >= 0 ? "+" : "−"}
-                          {formatMoney(Math.abs(y22.delta), { compact: true })}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-xs">
-                      <span
-                        className={
-                          "font-semibold " + (mid >= 0 ? "text-success" : "text-destructive")
-                        }
-                      >
-                        {mid >= 0 ? "+" : "−"}
-                        {formatMoney(Math.abs(mid), { compact: true })}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-secondary">
-                          <div
-                            className="h-full rounded-full bg-brand"
-                            style={{ width: `${Math.min(100, lateProgressPct)}%` }}
-                          />
-                        </div>
-                        <span className="font-mono text-xs">{lateProgressPct}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </AppShell>
+      {records.length > rows.length && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Showing the first {rows.length} by variance magnitude. Export retains all {records.length}{" "}
+          records in scope.
+        </p>
+      )}
+    </section>
   );
 }
-
-function YearLegend() {
-  const keys: (keyof typeof yearBucketMeta)[] = [
-    "closed-over",
-    "closed-claim",
-    "achieved",
-    "over",
-    "shipping",
-    "shipping-risk",
-  ];
-  return (
-    <div className="hidden flex-wrap gap-2 md:flex">
-      {keys.map((k) => (
-        <span
-          key={k}
-          className={
-            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium " +
-            yearBucketMeta[k].className
-          }
-        >
-          <span className={"h-1.5 w-1.5 rounded-full " + yearBucketMeta[k].dot} />
-          {yearBucketMeta[k].label}
-        </span>
-      ))}
-    </div>
-  );
+function download(name: string, text: string) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }

@@ -42,6 +42,7 @@ describe("static database migration contract", () => {
       "202608210003_ingestion_domains.sql",
       "202608240001_milestone10_enterprise_workflows.sql",
       "202608240002_milestone10_integrity_guards.sql",
+      "202608240003_milestone10_acceptance_controls.sql",
     ]);
     for (const { file, sql } of migrations) {
       expect(sql.trimStart(), file).toMatch(/^begin;/);
@@ -84,6 +85,23 @@ describe("static database migration contract", () => {
     expect(combinedSql).toContain("calculation requires an active recovery agreement");
     expect(combinedSql).toContain("mapping operation is not an approved declarative operation");
     expect(combinedSql).toContain("DCR transition requires document evidence");
+    expect(combinedSql).toContain("new DCRs must begin as drafts");
+    expect(combinedSql).toContain("DCR transition is outside the fixed governed lifecycle");
+    expect(combinedSql).toContain(
+      "DCR activation requires an approved effective agreement and complete linked recovery setup",
+    );
+    expect(combinedSql).toContain(
+      "use app.activate_recovery_agreement for atomic recovery activation",
+    );
+    expect(combinedSql).toContain(
+      "recovery activation found an incomplete or mismatched recovery draft",
+    );
+    expect(combinedSql).toContain(
+      "live connector testing requires an approved enabled connection and its server-side credential reference",
+    );
+    expect(combinedSql).toContain(
+      "master-data reference must identify a same-tenant canonical record",
+    );
     expect(combinedSql).toContain("approved part revision terms are immutable");
     expect(combinedSql).toContain("field mapping contains an unsupported key");
     expect(combinedSql).toContain(
