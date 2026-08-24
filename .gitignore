@@ -34,6 +34,9 @@ Logo-*@4x-100.jpg
 .project/wrangler-config/
 .dev.vars
 
+# Supabase CLI local link state
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

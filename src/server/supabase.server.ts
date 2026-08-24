@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
+import type { Database } from "../database.types";
 import { readServerEnvironment } from "./env.server";
 
 export function createUserDataClient(input: {
@@ -7,7 +8,7 @@ export function createUserDataClient(input: {
   accessToken: string;
 }) {
   const environment = readServerEnvironment(input.environment);
-  return createClient(environment.VITE_SUPABASE_URL, environment.VITE_SUPABASE_ANON_KEY, {
+  return createClient<Database>(environment.VITE_SUPABASE_URL, environment.VITE_SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
     global: { headers: { Authorization: `Bearer ${input.accessToken}` } },
   });
@@ -18,7 +19,11 @@ export function createServiceDataClient(environmentSource: Record<string, string
   if (!environment.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for this privileged operation");
   }
-  return createClient(environment.VITE_SUPABASE_URL, environment.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
-  });
+  return createClient<Database>(
+    environment.VITE_SUPABASE_URL,
+    environment.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
+    },
+  );
 }

@@ -7,10 +7,11 @@
 - [x] GitHub Actions applies all three Supabase migrations cleanly to a fresh database.
 - [x] Hosted `supabase db lint` and `supabase test db` pass, including ingestion, role-elevation, scoped-access, and cross-tenant denial checks.
 - [x] The project-scoped Supabase MCP server is loaded and OAuth-authenticated for `qflwjgmrspmcyghzinwz`; read-only preflight confirms the documented staging reference, empty application migration/schema/Auth/Storage state, no application policies, and clean pre-migration advisors.
-- [ ] The staging migration ledger contains exact repository versions `202608210001`–`003` in order after the unchanged files are applied through the approved CLI path; MCP-generated substitute versions and manual ledger repair are not accepted.
-- [ ] Generated database types are committed and server queries use them.
-- [ ] Authentication, invitation, password reset, MFA policy, session expiry, and multi-organization switching pass browser tests.
-- [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass.
+- [x] The staging migration ledger contains exact repository versions `202608210001`–`003` in order after Supabase CLI `2.111.0` dry-run and push applied only the unchanged files; no substitute version or manual ledger repair was used.
+- [x] Linked staging database lint passes at warning-as-failure; the unchanged transactional pgTAP RLS (7 assertions) and ingestion (10 assertions) suites and private Storage RLS (2 assertions) suite pass with no retained seed records.
+- [x] Generated database types are committed and both user-scoped and service-role server clients use them.
+- [ ] Authentication, invitation, password reset, MFA policy, session expiry, and multi-organization switching pass browser tests. Auth service health passes, but hosted self-signup is currently enabled contrary to the repository configuration; approved site/redirect URLs, policies, and invited test identities are required before correction and acceptance.
+- [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass. The private 25 MiB bucket, absence of direct authenticated object policies, empty object state, and authenticated insert/list denial boundary pass; scanner and signed-read lifecycle testing still require approved inputs/provider access.
 - [x] Calculation replay produces the same input hash, lines, exact values, and policy version in local contract tests.
 - [x] Import duplicate, partial failure, retry, cancellation, and reconciliation pass in local contract tests.
 - [ ] IHS/AFS and SAP/ERP adapters remain disabled until provider documentation, licensing where applicable, approved samples, mappings, credentials, and reconciliation thresholds are recorded.
