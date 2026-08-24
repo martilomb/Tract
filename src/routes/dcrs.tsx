@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Children, cloneElement, isValidElement, useId, useMemo, useState } from "react";
+import { Children, cloneElement, isValidElement, useId, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -10,8 +10,10 @@ import {
   History,
   Link2,
   MessageSquarePlus,
+  LayoutGrid,
   Paperclip,
   Search,
+  Table2,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,12 +39,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useDataset } from "@/lib/commodity";
 import {
   transitionDcr,
   type DcrState,
   type DcrStatus,
   type DcrTransitionEvidence,
+  type WorkflowRole,
 } from "@/domain/dcr-workflow";
 
 export const Route = createFileRoute("/dcrs")({ component: DcrWorkflowPage });
@@ -63,7 +75,14 @@ interface DemoDcr {
   partNumber: string;
   supplier: string;
   owner: string;
-  agreement?: { number: string; status: "draft" | "approved" | "active" };
+  reviewer: string;
+  recoverySetupComplete: boolean;
+  attachments: readonly { name: string; classification: "private"; linkedAt: string }[];
+  agreement?: {
+    number: string;
+    status: "draft" | "approved" | "active";
+    effective: boolean;
+  };
   evidence: DcrTransitionEvidence;
   comments: readonly DcrComment[];
   state: DcrState;
@@ -88,6 +107,7 @@ const PIPELINE: readonly DcrStatus[] = [
   "active",
   "closed",
 ];
+const BOARD_STAGES: readonly DcrStatus[] = [...PIPELINE, "rejected", "cancelled"];
 
 const NEXT_STATUS: Partial<Record<DcrStatus, DcrStatus>> = {
   draft: "submitted",
@@ -113,7 +133,16 @@ const INITIAL_DCRS: DemoDcr[] = [
     partNumber: "FO-104582-B",
     supplier: "Demo Supplier A",
     owner: "Local reviewer",
-    agreement: { number: "RA-2026-0041", status: "approved" },
+    reviewer: "Demo finance reviewer",
+    recoverySetupComplete: true,
+    attachments: [
+      {
+        name: "technical-evidence-summary.pdf",
+        classification: "private",
+        linkedAt: "2026-08-24 08:40 UTC",
+      },
+    ],
+    agreement: { number: "RA-2026-0041", status: "approved", effective: true },
     evidence: {
       documentTypes: ["technical_evidence"],
       assignmentRoles: ["owner", "reviewer", "approver"],
@@ -131,7 +160,24 @@ const INITIAL_DCRS: DemoDcr[] = [
       id: "demo-dcr-1",
       organizationId: "demo-org",
       status: "under_review",
-      history: [],
+      history: [
+        {
+          from: "draft",
+          to: "submitted",
+          actorId: "local-preparer",
+          occurredAt: "2026-08-23T15:00:00Z",
+          workflowId: "tract-default-dcr",
+          workflowVersion: 1,
+        },
+        {
+          from: "submitted",
+          to: "under_review",
+          actorId: "local-reviewer",
+          occurredAt: "2026-08-24T08:30:00Z",
+          workflowId: "tract-default-dcr",
+          workflowVersion: 1,
+        },
+      ],
     },
   },
   {
@@ -143,13 +189,25 @@ const INITIAL_DCRS: DemoDcr[] = [
     partNumber: "GM-208441-C",
     supplier: "Demo Supplier B",
     owner: "Local reviewer",
+    reviewer: "Not assigned",
+    recoverySetupComplete: false,
+    attachments: [],
     evidence: EMPTY_EVIDENCE,
     comments: [],
     state: {
       id: "demo-dcr-2",
       organizationId: "demo-org",
       status: "submitted",
-      history: [],
+      history: [
+        {
+          from: "draft",
+          to: "submitted",
+          actorId: "local-preparer",
+          occurredAt: "2026-08-24T07:45:00Z",
+          workflowId: "tract-default-dcr",
+          workflowVersion: 1,
+        },
+      ],
     },
   },
   {
@@ -161,6 +219,9 @@ const INITIAL_DCRS: DemoDcr[] = [
     partNumber: "HY-440218-D",
     supplier: "Not assigned",
     owner: "Local preparer",
+    reviewer: "Not assigned",
+    recoverySetupComplete: false,
+    attachments: [],
     evidence: EMPTY_EVIDENCE,
     comments: [],
     state: { id: "demo-dcr-3", organizationId: "demo-org", status: "draft", history: [] },
@@ -168,17 +229,28 @@ const INITIAL_DCRS: DemoDcr[] = [
 ];
 
 function DcrWorkflowPage() {
+  const { programs, parts } = useDataset();
   const [dcrs, setDcrs] = useState<DemoDcr[]>(INITIAL_DCRS);
   const [selectedId, setSelectedId] = useState(INITIAL_DCRS[0]!.id);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DcrStatus | "all">("all");
+  const [view, setView] = useState<"table" | "board">("table");
+  const [sort, setSort] = useState<"number" | "status" | "owner">("number");
+  const [actorRole, setActorRole] = useState<WorkflowRole>("administrator");
+  const [stageTarget, setStageTarget] = useState<DcrStatus | "">("");
+  const [stageReason, setStageReason] = useState("");
   const [historyFilter, setHistoryFilter] = useState<DcrStatus | "all">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const createTriggerRef = useRef<HTMLButtonElement>(null);
   const [number, setNumber] = useState("DCR-2026-0151");
   const [title, setTitle] = useState("");
-  const [program, setProgram] = useState("");
-  const [partNumber, setPartNumber] = useState("");
+  const [programId, setProgramId] = useState("");
+  const [partId, setPartId] = useState("");
   const [comment, setComment] = useState("");
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) setTimeout(() => createTriggerRef.current?.focus(), 0);
+  };
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -191,6 +263,11 @@ function DcrWorkflowPage() {
           )),
     );
   }, [dcrs, search, statusFilter]);
+  const sorted = useMemo(() => {
+    const value = (dcr: DemoDcr) =>
+      sort === "status" ? dcr.state.status : sort === "owner" ? dcr.owner : dcr.number;
+    return [...filtered].sort((left, right) => value(left).localeCompare(value(right)));
+  }, [filtered, sort]);
   const selected = dcrs.find((dcr) => dcr.id === selectedId) ?? dcrs[0];
   const filteredHistory =
     selected?.state.history.filter(
@@ -203,8 +280,10 @@ function DcrWorkflowPage() {
   };
 
   const createDraft = () => {
-    if (!number.trim() || !title.trim() || !program.trim() || !partNumber.trim()) {
-      toast.error("DCR number, title, program, and part number are required.");
+    const selectedProgram = programs.find((candidate) => candidate.id === programId);
+    const selectedPart = parts.find((candidate) => candidate.id === partId);
+    if (!number.trim() || !title.trim() || !selectedProgram || !selectedPart) {
+      toast.error("DCR number, title, affected program, and part number are required.");
       return;
     }
     if (dcrs.some((dcr) => dcr.number.toLowerCase() === number.trim().toLowerCase())) {
@@ -216,40 +295,64 @@ function DcrWorkflowPage() {
       id,
       number: number.trim(),
       title: title.trim(),
-      program: program.trim(),
+      program: selectedProgram.name,
       modelYears: [],
-      partNumber: partNumber.trim(),
+      partNumber: selectedPart.partNumber,
       supplier: "Not assigned",
       owner: "Local preparer",
+      reviewer: "Not assigned",
+      recoverySetupComplete: false,
+      attachments: [],
       evidence: EMPTY_EVIDENCE,
       comments: [],
       state: { id, organizationId: "demo-org", status: "draft", history: [] },
     };
     setDcrs((current) => [...current, draft]);
     setSelectedId(id);
-    setDialogOpen(false);
+    handleDialogOpenChange(false);
     toast.success("DCR draft validated", {
       description: "No recovery agreement is required to draft a DCR. Demo data was not persisted.",
     });
   };
 
-  const advance = () => {
-    if (!selected) return;
-    const next = NEXT_STATUS[selected.state.status];
+  const moveDcr = (dcrId: string, next: DcrStatus, reason?: string) => {
+    const record = dcrs.find((candidate) => candidate.id === dcrId);
+    if (!record) return;
     if (!next) return;
+    if (next === "active") {
+      const agreementReady =
+        (record.agreement?.status === "approved" || record.agreement?.status === "active") &&
+        record.agreement.effective;
+      if (!agreementReady || !record.recoverySetupComplete) {
+        toast.error("Transition blocked", {
+          description: `${!agreementReady ? "Approved effective recovery agreement is missing. " : ""}${!record.recoverySetupComplete ? "Complete linked recovery setup is missing." : ""} The DCR remains Approved.`,
+        });
+        return;
+      }
+    }
     try {
       const state = transitionDcr({
-        dcr: selected.state,
+        dcr: record.state,
         to: next,
-        actorId: "local-reviewer",
-        actorRoles: ["administrator"],
-        occurredAt: new Date().toISOString(),
-        comment:
-          next === "closed" ? "Closed through an explicit demonstration transition." : undefined,
-        evidence: selected.evidence,
+        actorId: `synthetic-${actorRole}`,
+        actorRoles: [actorRole],
+        occurredAt: `2026-08-24T${String(10 + record.state.history.length).padStart(2, "0")}:00:00Z`,
+        comment: ["closed", "rejected", "cancelled"].includes(next) ? reason : undefined,
+        evidence: record.evidence,
+        activation: {
+          agreementStatus: record.agreement?.status ?? "draft",
+          agreementEffective: record.agreement?.effective ?? false,
+          recoverySetupComplete: record.recoverySetupComplete,
+        },
       });
-      updateSelected((dcr) => ({ ...dcr, state }));
-      toast.success(`${STATUS_LABELS[selected.state.status]} → ${STATUS_LABELS[next]}`, {
+      setDcrs((current) =>
+        current.map((candidate) =>
+          candidate.id === record.id ? { ...candidate, state } : candidate,
+        ),
+      );
+      setSelectedId(record.id);
+      setStageReason("");
+      toast.success(`${STATUS_LABELS[record.state.status]} → ${STATUS_LABELS[next]}`, {
         description: "Validated by workflow version 1; the demonstration change was not persisted.",
       });
     } catch (error) {
@@ -259,9 +362,21 @@ function DcrWorkflowPage() {
     }
   };
 
+  const advance = (next = selected && NEXT_STATUS[selected.state.status]) => {
+    if (selected && next) moveDcr(selected.id, next, stageReason);
+  };
+
   const addEvidence = () => {
     updateSelected((dcr) => ({
       ...dcr,
+      attachments: [
+        ...dcr.attachments,
+        {
+          name: "synthetic-technical-evidence.pdf",
+          classification: "private",
+          linkedAt: "2026-08-24T10:30:00Z",
+        },
+      ],
       evidence: {
         ...dcr.evidence,
         documentTypes: Array.from(new Set([...dcr.evidence.documentTypes, "technical_evidence"])),
@@ -275,6 +390,7 @@ function DcrWorkflowPage() {
   const assignReviewers = () => {
     updateSelected((dcr) => ({
       ...dcr,
+      reviewer: "Demo finance reviewer",
       evidence: {
         ...dcr.evidence,
         assignmentRoles: Array.from(
@@ -310,7 +426,7 @@ function DcrWorkflowPage() {
         {
           id: `comment-${dcr.comments.length + 1}`,
           author: "Local reviewer",
-          createdAt: new Date().toISOString(),
+          createdAt: `2026-08-24T${String(11 + dcr.comments.length).padStart(2, "0")}:00:00Z`,
           body: comment.trim(),
         },
       ],
@@ -324,7 +440,7 @@ function DcrWorkflowPage() {
       title="Design Change Requests"
       description="Evidence-gated engineering changes with affected records, accountable reviewers, comments, and immutable transitions."
       actions={
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
+        <Button ref={createTriggerRef} size="sm" onClick={() => setDialogOpen(true)}>
           <FilePlus2 className="mr-1.5 h-4 w-4" /> Create DCR draft
         </Button>
       }
@@ -391,41 +507,204 @@ function DcrWorkflowPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={sort} onValueChange={(value) => setSort(value as typeof sort)}>
+          <SelectTrigger className="sm:w-40" aria-label="Sort DCR register">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="number">Sort: DCR number</SelectItem>
+            <SelectItem value="status">Sort: stage</SelectItem>
+            <SelectItem value="owner">Sort: owner</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={actorRole} onValueChange={(value) => setActorRole(value as WorkflowRole)}>
+          <SelectTrigger className="sm:w-44" aria-label="Synthetic actor role">
+            <UserRound className="mr-2 h-4 w-4" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="administrator">Actor: Administrator</SelectItem>
+            <SelectItem value="preparer">Actor: Preparer</SelectItem>
+            <SelectItem value="reviewer">Actor: Reviewer</SelectItem>
+            <SelectItem value="approver">Actor: Approver</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex rounded-md border p-0.5" aria-label="DCR view">
+          <Button
+            size="sm"
+            variant={view === "table" ? "secondary" : "ghost"}
+            onClick={() => setView("table")}
+          >
+            <Table2 className="mr-1 h-3.5 w-3.5" /> Table
+          </Button>
+          <Button
+            size="sm"
+            variant={view === "board" ? "secondary" : "ghost"}
+            onClick={() => setView("board")}
+          >
+            <LayoutGrid className="mr-1 h-3.5 w-3.5" /> Board
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[330px_minmax(0,1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">DCR register</CardTitle>
-            <CardDescription>
-              {filtered.length} of {dcrs.length} organization records
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="max-h-[720px] space-y-2 overflow-y-auto">
-            {filtered.map((dcr) => (
-              <button
-                key={dcr.id}
-                type="button"
-                onClick={() => setSelectedId(dcr.id)}
-                className={`w-full rounded-lg border p-3 text-left transition ${selected?.id === dcr.id ? "border-primary bg-primary/5" : "hover:bg-secondary/50"}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs font-semibold">{dcr.number}</span>
-                  <Badge variant="outline">{STATUS_LABELS[dcr.state.status]}</Badge>
+      {view === "board" && (
+        <div
+          className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]"
+          aria-label="DCR board view"
+        >
+          <div className="min-w-0 overflow-x-auto pb-2">
+            <div className="grid min-w-[1600px] grid-cols-8 gap-3">
+              {BOARD_STAGES.map((stage) => {
+                const cards = sorted.filter((dcr) => dcr.state.status === stage);
+                return (
+                  <section
+                    key={stage}
+                    className="rounded-lg border bg-secondary/20 p-3"
+                    aria-label={`${STATUS_LABELS[stage]} column`}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const dcrId = event.dataTransfer.getData("text/plain");
+                      if (dcrId) moveDcr(dcrId, stage);
+                    }}
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <h2 className="text-sm font-semibold">{STATUS_LABELS[stage]}</h2>
+                      <Badge variant="outline">{cards.length}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {cards.map((dcr) => (
+                        <button
+                          key={dcr.id}
+                          type="button"
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", dcr.id);
+                          }}
+                          onClick={() => setSelectedId(dcr.id)}
+                          aria-label={`Open ${dcr.number}; drag to request a governed stage change`}
+                          className={`w-full rounded-md border bg-background p-3 text-left hover:bg-secondary/50 ${selected?.id === dcr.id ? "ring-2 ring-primary" : ""}`}
+                        >
+                          <div className="font-mono text-[11px]">{dcr.number}</div>
+                          <div className="mt-1 text-sm font-medium">{dcr.title}</div>
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {dcr.program} · {dcr.partNumber}
+                          </div>
+                          <div className="mt-2 text-xs">Owner: {dcr.owner}</div>
+                        </button>
+                      ))}
+                      {!cards.length && (
+                        <div className="rounded border border-dashed p-3 text-xs text-muted-foreground">
+                          No records
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Drag a card to request a stage change, or use the accessible stage control in the
+              record panel. Every move is validated by the fixed lifecycle and cannot bypass role,
+              evidence, agreement, or recovery-setup gates; blocked cards remain in their prior
+              column.
+            </p>
+          </div>
+          {selected && (
+            <Card className="h-fit xl:sticky xl:top-4">
+              <CardHeader>
+                <CardTitle className="text-base">Selected board record</CardTitle>
+                <CardDescription className="font-mono">{selected.number}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="font-medium">{selected.title}</div>
+                <Badge variant="outline">{STATUS_LABELS[selected.state.status]}</Badge>
+                <div className="text-muted-foreground">
+                  {selected.program} · {selected.partNumber}
                 </div>
-                <div className="mt-2 text-sm font-medium">{dcr.title}</div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {dcr.program} · {dcr.partNumber}
+                <div>Owner: {selected.owner}</div>
+                <div>Reviewer: {selected.reviewer}</div>
+                <div>
+                  Agreement: {selected.agreement?.number ?? "Not linked"} · setup{" "}
+                  {selected.recoverySetupComplete ? "complete" : "incomplete"}
                 </div>
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                No DCRs match the current search and status filter.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+                <p className="text-xs text-muted-foreground">
+                  The complete evidence, comments, approvals, activity, and accessible stage control
+                  are in the record panel below.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      <div
+        className={
+          view === "table"
+            ? "grid gap-5 xl:grid-cols-[minmax(620px,1.2fr)_minmax(480px,0.8fr)]"
+            : "grid gap-5"
+        }
+      >
+        {view === "table" && (
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle className="text-base">DCR table</CardTitle>
+              <CardDescription>
+                {filtered.length} of {dcrs.length} organization records · select a DCR for its
+                governed detail panel
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="max-h-[720px] overflow-auto p-0">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-background">
+                  <TableRow>
+                    <TableHead>DCR</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Program / model</TableHead>
+                    <TableHead>Part / revision</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead>Reviewer</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sorted.map((dcr) => (
+                    <TableRow
+                      key={dcr.id}
+                      data-state={selected?.id === dcr.id ? "selected" : undefined}
+                    >
+                      <TableCell>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(dcr.id)}
+                          className="font-mono text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {dcr.number}
+                        </button>
+                      </TableCell>
+                      <TableCell className="min-w-52 font-medium">{dcr.title}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{STATUS_LABELS[dcr.state.status]}</Badge>
+                      </TableCell>
+                      <TableCell className="min-w-40">{dcr.program}</TableCell>
+                      <TableCell className="font-mono text-xs">{dcr.partNumber}</TableCell>
+                      <TableCell>{dcr.owner}</TableCell>
+                      <TableCell>{dcr.reviewer}</TableCell>
+                    </TableRow>
+                  ))}
+                  {!sorted.length && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                        No DCRs match the current search and status filter.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         {selected && (
           <div className="space-y-5">
@@ -438,14 +717,51 @@ function DcrWorkflowPage() {
                   </div>
                   <CardDescription className="mt-1 font-mono">{selected.number}</CardDescription>
                 </div>
-                {NEXT_STATUS[selected.state.status] && (
-                  <Button size="sm" onClick={advance}>
-                    Advance to {STATUS_LABELS[NEXT_STATUS[selected.state.status]!]}
-                    <ArrowRight className="ml-1.5 h-4 w-4" />
+                <div className="flex flex-wrap gap-2">
+                  <Select
+                    value={stageTarget}
+                    onValueChange={(value) => setStageTarget(value as DcrStatus)}
+                    disabled={!stageTargets(selected.state.status).length}
+                  >
+                    <SelectTrigger className="w-44" aria-label="Move DCR to stage">
+                      <SelectValue
+                        placeholder={
+                          stageTargets(selected.state.status).length
+                            ? "Move to stage"
+                            : "Terminal stage"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stageTargets(selected.state.status).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {STATUS_LABELS[status]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={stageReason}
+                    onChange={(event) => setStageReason(event.target.value)}
+                    className="w-64"
+                    aria-label="Stage transition reason"
+                    placeholder="Reason for terminal move"
+                  />
+                  <Button
+                    size="sm"
+                    disabled={
+                      !stageTarget || !stageTargets(selected.state.status).includes(stageTarget)
+                    }
+                    onClick={() => {
+                      if (stageTarget) advance(stageTarget);
+                      setStageTarget("");
+                    }}
+                  >
+                    Move stage <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Button>
-                )}
+                </div>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Detail icon={ClipboardCheck} label="Program" value={selected.program} />
                 <Detail icon={FilePlus2} label="Part / revision" value={selected.partNumber} />
                 <Detail
@@ -454,15 +770,27 @@ function DcrWorkflowPage() {
                   value={selected.modelYears.join(", ") || "Not assigned"}
                 />
                 <Detail icon={UserRound} label="Owner" value={selected.owner} />
+                <Detail icon={UserRound} label="Reviewer" value={selected.reviewer} />
               </CardContent>
               <CardContent className="flex flex-wrap gap-2 border-t pt-4">
                 <Button asChild size="sm" variant="outline">
-                  <Link to="/programs" search={{ programId: undefined }}>
+                  <Link
+                    to="/programs"
+                    search={{
+                      oem: undefined,
+                      programId: undefined,
+                      modelYear: undefined,
+                      partId: undefined,
+                      view: undefined,
+                    }}
+                  >
                     Open program
                   </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
-                  <Link to="/parts">Open part</Link>
+                  <Link to="/parts" search={{}}>
+                    Open part
+                  </Link>
                 </Button>
                 {selected.agreement ? (
                   <Button asChild size="sm" variant="outline">
@@ -507,6 +835,17 @@ function DcrWorkflowPage() {
                     label="Release approval"
                     met={selected.evidence.approvedStages.includes("release")}
                   />
+                  <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                    <div className="font-medium text-foreground">Private attachment metadata</div>
+                    {selected.attachments.length
+                      ? selected.attachments.map((attachment) => (
+                          <div key={`${attachment.name}-${attachment.linkedAt}`} className="mt-1">
+                            {attachment.name} · {attachment.classification} · linked{" "}
+                            {attachment.linkedAt}
+                          </div>
+                        ))
+                      : "No private attachment metadata linked."}
+                  </div>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Button size="sm" variant="outline" onClick={addEvidence}>
                       Link demo evidence
@@ -535,6 +874,31 @@ function DcrWorkflowPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <Label htmlFor="agreement-selector" className="text-xs">
+                    Controlled agreement link
+                  </Label>
+                  <Select
+                    value={selected.agreement?.number ?? "none"}
+                    onValueChange={(value) =>
+                      updateSelected((dcr) => ({
+                        ...dcr,
+                        agreement:
+                          value === "none"
+                            ? undefined
+                            : { number: value, status: "approved", effective: true },
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="agreement-selector" className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No agreement linked</SelectItem>
+                      <SelectItem value="RA-2026-0041">
+                        RA-2026-0041 · approved demo agreement
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                   {selected.agreement ? (
                     <div className="rounded-lg border p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -542,14 +906,25 @@ function DcrWorkflowPage() {
                         <Badge variant="outline">{selected.agreement.status}</Badge>
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Recovery activation and posting still require this agreement to be approved
-                        and active.
+                        Recovery activation requires this agreement to be approved and effective,
+                        plus complete linked recovery setup.
                       </p>
+                      {selected.recoverySetupComplete ? (
+                        <Badge className="mt-3" variant="secondary">
+                          Recovery setup complete
+                        </Badge>
+                      ) : (
+                        <Button asChild size="sm" className="mt-3" variant="outline">
+                          <Link to="/contracts" search={{ dcr: selected.number }}>
+                            Set up / activate recovery
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      No agreement linked. This does not block drafting or submission; recovery
-                      activation and accounting posting remain unavailable.
+                      No agreement linked. This does not block drafting or submission; activation
+                      remains unavailable until an approved effective agreement and setup exist.
                     </div>
                   )}
                 </CardContent>
@@ -641,24 +1016,55 @@ function DcrWorkflowPage() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create DCR draft</DialogTitle>
             <DialogDescription>
-              Creates a distinct change-request draft. A recovery agreement is not required at this
-              stage.
+              Creates a DCR draft against controlled existing records. An agreement is not required
+              at this stage; new master data is governed in recovery setup.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="DCR number">
               <Input value={number} onChange={(event) => setNumber(event.target.value)} />
             </Field>
-            <Field label="Part number / revision">
-              <Input value={partNumber} onChange={(event) => setPartNumber(event.target.value)} />
-            </Field>
             <Field label="Affected program">
-              <Input value={program} onChange={(event) => setProgram(event.target.value)} />
+              <Select
+                value={programId}
+                onValueChange={(value) => {
+                  setProgramId(value);
+                  setPartId("");
+                }}
+              >
+                <SelectTrigger aria-label="Affected program">
+                  <SelectValue placeholder="Select existing program" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.slice(0, 200).map((candidate) => (
+                    <SelectItem key={candidate.id} value={candidate.id}>
+                      {candidate.oem} · {candidate.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Affected part number / revision">
+              <Select value={partId} onValueChange={setPartId} disabled={!programId}>
+                <SelectTrigger aria-label="Affected part number or revision">
+                  <SelectValue placeholder="Select existing part" />
+                </SelectTrigger>
+                <SelectContent>
+                  {parts
+                    .filter((candidate) => candidate.programId === programId)
+                    .slice(0, 200)
+                    .map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        {candidate.partNumber} · {candidate.description}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="Change title">
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -711,6 +1117,17 @@ function Gate({ label, met }: { label: string; met: boolean }) {
       </Badge>
     </div>
   );
+}
+
+function stageTargets(status: DcrStatus): DcrStatus[] {
+  const targets: DcrStatus[] = [];
+  const next = NEXT_STATUS[status];
+  if (next) targets.push(next);
+  if (["draft", "submitted", "under_review", "approved"].includes(status)) {
+    targets.push("cancelled");
+  }
+  if (status === "submitted" || status === "under_review") targets.push("rejected");
+  return targets;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

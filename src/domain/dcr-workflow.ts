@@ -52,6 +52,12 @@ export interface DcrTransitionEvidence {
   approvedStages: readonly string[];
 }
 
+export interface DcrActivationContext {
+  agreementStatus: "draft" | "under_review" | "approved" | "active" | "expired" | "rejected";
+  agreementEffective: boolean;
+  recoverySetupComplete: boolean;
+}
+
 export const defaultDcrWorkflow: WorkflowDefinition = Object.freeze({
   id: "tract-default-dcr",
   version: 1,
@@ -149,6 +155,7 @@ export function transitionDcr(input: {
   comment?: string;
   workflow?: WorkflowDefinition;
   evidence?: DcrTransitionEvidence;
+  activation?: DcrActivationContext;
 }): DcrState {
   const workflow = validateWorkflow(input.workflow ?? defaultDcrWorkflow);
   const transition = workflow.transitions.find(
@@ -195,6 +202,16 @@ export function transitionDcr(input: {
       `Required DCR approval is missing: ${stage}`,
       "dcr_approval_required",
       { stage },
+    );
+  }
+  if (input.to === "active") {
+    invariant(
+      (input.activation?.agreementStatus === "approved" ||
+        input.activation?.agreementStatus === "active") &&
+        input.activation.agreementEffective &&
+        input.activation.recoverySetupComplete,
+      "DCR activation requires an approved effective agreement and complete linked recovery setup",
+      "dcr_recovery_setup_required",
     );
   }
 

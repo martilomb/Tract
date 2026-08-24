@@ -39,6 +39,22 @@ export interface RecoveryAgreement {
   supersedesId?: string;
 }
 
+export interface RecoverySetupActivation {
+  agreementEvidenceReviewed: boolean;
+  eligibleVolumeBasisConfirmed: boolean;
+  roundingMode: "half_even";
+  forecastAssumptionsVersion: string;
+  compatibleLinks: readonly {
+    programId: string;
+    modelYearId: string;
+    partId: string;
+  }[];
+  dcrStatuses: readonly {
+    id: string;
+    status: "draft" | "submitted" | "under_review" | "approved" | "active" | "closed";
+  }[];
+}
+
 function validIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
@@ -106,9 +122,26 @@ export function validateRecoveryAgreement(agreement: RecoveryAgreement): Recover
       "agreement_rate_invalid",
     );
     invariant(
+      rate.currency === agreement.settlementCurrency,
+      "Rate currency must match the agreement settlement currency",
+      "agreement_rate_currency_mismatch",
+    );
+    invariant(
       !rate.effectiveTo || rate.effectiveTo >= rate.effectiveFrom,
       "Rate end date cannot precede its effective date",
       "agreement_rate_invalid",
+    );
+  }
+  const orderedRates = [...agreement.ratePeriods].sort((left, right) =>
+    left.effectiveFrom.localeCompare(right.effectiveFrom),
+  );
+  for (let index = 1; index < orderedRates.length; index += 1) {
+    const previous = orderedRates[index - 1]!;
+    const current = orderedRates[index]!;
+    invariant(
+      !previous.effectiveTo || previous.effectiveTo < current.effectiveFrom,
+      "Agreement rate periods cannot overlap",
+      "agreement_rate_overlap",
     );
   }
   return agreement;
@@ -169,6 +202,7 @@ export function approveRecoveryAgreement(input: {
 export function activateRecoveryAgreement(
   agreement: RecoveryAgreement,
   asOfDate: string,
+  setup: RecoverySetupActivation,
 ): RecoveryAgreement {
   validateRecoveryAgreement(agreement);
   invariant(
@@ -181,6 +215,62 @@ export function activateRecoveryAgreement(
     "Activation requires approval evidence",
     "agreement_approval_required",
   );
+  invariant(
+    agreement.documentVersionIds.length > 0,
+    "Activation requires a reviewed original document version",
+    "agreement_document_required",
+  );
+  invariant(
+    agreement.programIds.length > 0 &&
+      agreement.modelYearIds.length > 0 &&
+      agreement.partIds.length > 0,
+    "Activation requires linked program, model year, and part records",
+    "agreement_link_required",
+  );
+  invariant(
+    agreement.ratePeriods.length > 0,
+    "Activation requires a rate period",
+    "agreement_rate_required",
+  );
+  invariant(
+    setup.agreementEvidenceReviewed,
+    "Activation requires reviewed agreement evidence",
+    "agreement_evidence_review_required",
+  );
+  invariant(
+    setup.eligibleVolumeBasisConfirmed,
+    "Activation requires confirmed eligible-volume basis",
+    "agreement_volume_basis_required",
+  );
+  invariant(
+    setup.roundingMode === "half_even",
+    "Activation requires the approved rounding policy",
+    "agreement_rounding_required",
+  );
+  invariant(
+    setup.forecastAssumptionsVersion.trim() !== "",
+    "Activation requires versioned forecast assumptions",
+    "agreement_forecast_assumptions_required",
+  );
+  invariant(
+    setup.compatibleLinks.some(
+      (link) =>
+        agreement.programIds.includes(link.programId) &&
+        agreement.modelYearIds.includes(link.modelYearId) &&
+        agreement.partIds.includes(link.partId),
+    ),
+    "Activation requires a compatible linked program, model year, and part",
+    "agreement_link_incompatible",
+  );
+  for (const dcrId of agreement.dcrIds) {
+    const linkedDcr = setup.dcrStatuses.find((candidate) => candidate.id === dcrId);
+    invariant(
+      linkedDcr?.status === "approved" || linkedDcr?.status === "active",
+      "Activation requires every linked DCR to be approved",
+      "agreement_dcr_not_approved",
+      { dcrId },
+    );
+  }
   invariant(
     Boolean(agreement.effectiveFrom),
     "Activation requires an effective date",

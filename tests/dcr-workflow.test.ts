@@ -87,4 +87,43 @@ describe("DCR workflow", () => {
       }),
     ).toThrow(/approver/);
   });
+
+  it("requires approved agreement evidence and complete recovery setup before Active", () => {
+    const approved = { ...draft, status: "approved" as const };
+    const baseInput = {
+      dcr: approved,
+      to: "active" as const,
+      actorId: "u3",
+      actorRoles: ["approver" as const],
+      occurredAt: "2026-08-24T12:00:00Z",
+      evidence: {
+        documentTypes: ["technical_evidence"],
+        assignmentRoles: ["approver" as const],
+        approvedStages: ["release"],
+      },
+    };
+
+    expect(() => transitionDcr(baseInput)).toThrow(/approved effective agreement/i);
+    expect(() =>
+      transitionDcr({
+        ...baseInput,
+        activation: {
+          agreementStatus: "approved",
+          agreementEffective: true,
+          recoverySetupComplete: false,
+        },
+      }),
+    ).toThrow(/complete linked recovery setup/i);
+
+    expect(
+      transitionDcr({
+        ...baseInput,
+        activation: {
+          agreementStatus: "active",
+          agreementEffective: true,
+          recoverySetupComplete: true,
+        },
+      }).status,
+    ).toBe("active");
+  });
 });

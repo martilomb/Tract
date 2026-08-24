@@ -27,6 +27,15 @@ const draft: RecoveryAgreement = {
   ratePeriods: [{ effectiveFrom: "2026-08-01", perUnitRate: "6.315789", currency: "USD" }],
 };
 
+const completeSetup = {
+  agreementEvidenceReviewed: true,
+  eligibleVolumeBasisConfirmed: true,
+  roundingMode: "half_even" as const,
+  forecastAssumptionsVersion: "forecast-v1",
+  compatibleLinks: [{ programId: "program-1", modelYearId: "program-year-1", partId: "part-1" }],
+  dcrStatuses: [{ id: "dcr-1", status: "approved" as const }],
+};
+
 describe("recovery agreement workflow", () => {
   it("keeps DCR linkage separate while requiring approval before recovery activation", () => {
     const underReview = submitAgreementForReview(draft);
@@ -36,7 +45,7 @@ describe("recovery agreement workflow", () => {
       approvalDecisionId: "approval-1",
       approvedAt: "2026-08-24T12:00:00Z",
     });
-    const active = activateRecoveryAgreement(approved, "2026-08-24");
+    const active = activateRecoveryAgreement(approved, "2026-08-24", completeSetup);
 
     expect(active.status).toBe("active");
     expect(active.dcrIds).toEqual(["dcr-1"]);
@@ -56,5 +65,58 @@ describe("recovery agreement workflow", () => {
       /linked agreement/i,
     );
     expect(() => assertRecoveryPostingAllowed(draft, "2026-08-24")).toThrow(/active agreement/i);
+  });
+
+  it("rejects inconsistent rate currencies and overlapping periods", () => {
+    expect(() =>
+      submitAgreementForReview({
+        ...draft,
+        ratePeriods: [{ effectiveFrom: "2026-08-01", perUnitRate: "6.31", currency: "EUR" }],
+      }),
+    ).toThrow(/settlement currency/i);
+    expect(() =>
+      submitAgreementForReview({
+        ...draft,
+        ratePeriods: [
+          {
+            effectiveFrom: "2026-08-01",
+            effectiveTo: "2026-08-31",
+            perUnitRate: "6.31",
+            currency: "USD",
+          },
+          { effectiveFrom: "2026-08-31", perUnitRate: "6.50", currency: "USD" },
+        ],
+      }),
+    ).toThrow(/cannot overlap/i);
+  });
+
+  it("activates atomically only with complete linked setup and supports the DCR-bypass path", () => {
+    const approved = approveRecoveryAgreement({
+      agreement: submitAgreementForReview(draft),
+      approverId: "approver-1",
+      approvalDecisionId: "approval-1",
+      approvedAt: "2026-08-24T12:00:00Z",
+    });
+    expect(() =>
+      activateRecoveryAgreement(approved, "2026-08-24", {
+        ...completeSetup,
+        compatibleLinks: [],
+      }),
+    ).toThrow(/compatible linked program/i);
+    expect(() =>
+      activateRecoveryAgreement(approved, "2026-08-24", {
+        ...completeSetup,
+        dcrStatuses: [{ id: "dcr-1", status: "under_review" }],
+      }),
+    ).toThrow(/linked DCR to be approved/i);
+    expect(approved.status).toBe("approved");
+
+    const bypass = { ...approved, id: "agreement-2", dcrIds: [] };
+    expect(
+      activateRecoveryAgreement(bypass, "2026-08-24", {
+        ...completeSetup,
+        dcrStatuses: [],
+      }).status,
+    ).toBe("active");
   });
 });

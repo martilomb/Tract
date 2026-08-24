@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Children, cloneElement, isValidElement, useId, useMemo, useState } from "react";
+import { Children, cloneElement, isValidElement, useId, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,6 +18,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -37,12 +38,42 @@ import {
 } from "@/components/ui/select";
 import {
   submitAgreementForReview,
+  approveRecoveryAgreement,
+  activateRecoveryAgreement,
   validateRecoveryAgreement,
   type EligibleVolumeBasis,
   type RecoveryAgreement,
 } from "@/domain/contracts";
+import { parts as demoParts, programs as demoPrograms, programModelYears } from "@/lib/demo-data";
 
-export const Route = createFileRoute("/contracts")({ component: ContractsPage });
+type ContractSearch = {
+  q?: string;
+  status?: string;
+  supplier?: string;
+  oem?: string;
+  program?: string;
+  modelYear?: string;
+  part?: string;
+  dcr?: string;
+  effective?: string;
+  selected?: string;
+};
+
+export const Route = createFileRoute("/contracts")({
+  component: ContractsPage,
+  validateSearch: (search: Record<string, unknown>): ContractSearch => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+    status: typeof search.status === "string" ? search.status : undefined,
+    supplier: typeof search.supplier === "string" ? search.supplier : undefined,
+    oem: typeof search.oem === "string" ? search.oem : undefined,
+    program: typeof search.program === "string" ? search.program : undefined,
+    modelYear: typeof search.modelYear === "string" ? search.modelYear : undefined,
+    part: typeof search.part === "string" ? search.part : undefined,
+    dcr: typeof search.dcr === "string" ? search.dcr : undefined,
+    effective: typeof search.effective === "string" ? search.effective : undefined,
+    selected: typeof search.selected === "string" ? search.selected : undefined,
+  }),
+});
 
 const AGREEMENTS: readonly RecoveryAgreement[] = [
   {
@@ -60,9 +91,9 @@ const AGREEMENTS: readonly RecoveryAgreement[] = [
     expiresOn: "2031-03-31",
     ownerId: "Commercial recovery owner",
     documentVersionIds: ["Contract-original-v2.pdf"],
-    programIds: ["F-150 Lightning", "F-150 Lightning Refresh"],
+    programIds: ["p-001"],
     modelYearIds: ["2027", "2028", "2029"],
-    partIds: ["FO-104582-B", "FO-104582-C"],
+    partIds: ["pt-0001"],
     dcrIds: ["DCR-2026-0148"],
     ratePeriods: [
       {
@@ -90,9 +121,9 @@ const AGREEMENTS: readonly RecoveryAgreement[] = [
     effectiveFrom: "2026-10-01",
     ownerId: "Commercial recovery owner",
     documentVersionIds: ["Unsigned-agreement-v1.pdf"],
-    programIds: ["Equinox EV"],
+    programIds: ["p-002"],
     modelYearIds: ["2027"],
-    partIds: ["GM-208441-C"],
+    partIds: ["pt-0002"],
     dcrIds: ["DCR-2026-0149"],
     ratePeriods: [{ effectiveFrom: "2026-10-01", perUnitRate: "3.250000", currency: "USD" }],
   },
@@ -125,30 +156,80 @@ const WIZARD_STEPS = [
 ] as const;
 
 function ContractsPage() {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
-  const [selectedId, setSelectedId] = useState(AGREEMENTS[0]!.id);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [localAgreements, setLocalAgreements] = useState<readonly RecoveryAgreement[]>([]);
+  const agreements = useMemo(() => [...localAgreements, ...AGREEMENTS], [localAgreements]);
+  const [query, setQuery] = useState(search.q ?? "");
+  const [status, setStatus] = useState(search.status ?? "all");
+  const [supplier, setSupplier] = useState(search.supplier ?? "all");
+  const [oem, setOem] = useState(search.oem ?? "all");
+  const [program, setProgram] = useState(search.program ?? "all");
+  const [modelYear, setModelYear] = useState(search.modelYear ?? "all");
+  const [part, setPart] = useState(search.part ?? "all");
+  const [dcr, setDcr] = useState(search.dcr ?? "all");
+  const [effective, setEffective] = useState(search.effective ?? "all");
+  const [selectedId, setSelectedId] = useState(search.selected ?? AGREEMENTS[0]!.id);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const setupTriggerRef = useRef<HTMLButtonElement>(null);
+  const handleWizardOpenChange = (open: boolean) => {
+    setWizardOpen(open);
+    if (!open) setTimeout(() => setupTriggerRef.current?.focus(), 0);
+  };
+  const setFilters = (next: Partial<ContractSearch>) => {
+    void navigate({
+      search: {
+        ...search,
+        q: query,
+        status,
+        supplier,
+        oem,
+        program,
+        modelYear,
+        part,
+        dcr,
+        effective,
+        selected: selectedId,
+        ...next,
+      },
+    });
+  };
+  const suppliers = useMemo(
+    () =>
+      [...new Set(agreements.map((agreement) => agreement.supplierId).filter(Boolean))] as string[],
+    [agreements],
+  );
   const filtered = useMemo(
     () =>
-      AGREEMENTS.filter(
+      agreements.filter(
         (agreement) =>
           (status === "all" || agreement.status === status) &&
+          (supplier === "all" || agreement.supplierId === supplier) &&
+          (program === "all" || agreement.programIds.includes(program)) &&
+          (modelYear === "all" || agreement.modelYearIds.includes(modelYear)) &&
+          (part === "all" || agreement.partIds.includes(part)) &&
+          (dcr === "all" || agreement.dcrIds.includes(dcr)) &&
+          (effective === "all" || agreement.effectiveFrom?.slice(0, 7) === effective) &&
+          (oem === "all" ||
+            agreement.programIds.some(
+              (id) => demoPrograms.find((candidate) => candidate.id === id)?.oem === oem,
+            )) &&
           `${agreement.agreementNumber} ${agreement.title} ${agreement.supplierId ?? ""}`
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
-    [query, status],
+    [agreements, query, status, supplier, oem, program, modelYear, part, dcr, effective],
   );
-  const selected = AGREEMENTS.find((agreement) => agreement.id === selectedId) ?? AGREEMENTS[0]!;
+  const selected =
+    agreements.find((agreement) => agreement.id === selectedId) ?? filtered[0] ?? agreements[0]!;
 
   return (
     <AppShell
       title="Recovery Agreements and Contracts"
       description="Canonical contractual authority for recovery terms, linked records, evidence, approval, and activation."
       actions={
-        <Button size="sm" onClick={() => setWizardOpen(true)}>
-          <FilePlus2 className="mr-1.5 h-4 w-4" /> Create recovery agreement
+        <Button ref={setupTriggerRef} size="sm" onClick={() => setWizardOpen(true)}>
+          <FilePlus2 className="mr-1.5 h-4 w-4" /> Set up / activate recovery
         </Button>
       }
     >
@@ -162,7 +243,7 @@ function ContractsPage() {
           <CardHeader>
             <CardTitle className="text-base">Agreement register</CardTitle>
             <CardDescription>
-              {filtered.length} of {AGREEMENTS.length} synthetic agreements
+              {filtered.length} of {agreements.length} synthetic agreements
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -172,11 +253,20 @@ function ContractsPage() {
                 <Input
                   className="pl-9"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setFilters({ q: event.target.value });
+                  }}
                   placeholder="Search agreements"
                 />
               </div>
-              <Select value={status} onValueChange={setStatus}>
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  setStatus(value);
+                  setFilters({ status: value });
+                }}
+              >
                 <SelectTrigger className="w-36" aria-label="Filter agreement status">
                   <SelectValue />
                 </SelectTrigger>
@@ -199,12 +289,97 @@ function ContractsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <ContractFilter
+                label="Supplier"
+                value={supplier}
+                options={suppliers.map((value) => ({ value, label: value }))}
+                onChange={(value) => {
+                  setSupplier(value);
+                  setFilters({ supplier: value });
+                }}
+              />
+              <ContractFilter
+                label="OEM"
+                value={oem}
+                options={[...new Set(demoPrograms.map((item) => item.oem))].map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(value) => {
+                  setOem(value);
+                  setFilters({ oem: value });
+                }}
+              />
+              <ContractFilter
+                label="Program"
+                value={program}
+                options={demoPrograms.map((item) => ({ value: item.id, label: item.name }))}
+                onChange={(value) => {
+                  setProgram(value);
+                  setFilters({ program: value });
+                }}
+              />
+              <ContractFilter
+                label="Model year"
+                value={modelYear}
+                options={[...new Set(Object.values(programModelYears).flat().map(String))].map(
+                  (value) => ({ value, label: value }),
+                )}
+                onChange={(value) => {
+                  setModelYear(value);
+                  setFilters({ modelYear: value });
+                }}
+              />
+              <ContractFilter
+                label="Part"
+                value={part}
+                options={demoParts.slice(0, 200).map((item) => ({
+                  value: item.id,
+                  label: `${item.partNumber} · ${item.description}`,
+                }))}
+                onChange={(value) => {
+                  setPart(value);
+                  setFilters({ part: value });
+                }}
+              />
+              <ContractFilter
+                label="DCR"
+                value={dcr}
+                options={["DCR-2026-0148", "DCR-2026-0149"].map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(value) => {
+                  setDcr(value);
+                  setFilters({ dcr: value });
+                }}
+              />
+              <ContractFilter
+                label="Effective month"
+                value={effective}
+                options={(
+                  [
+                    ...new Set(
+                      agreements.map((item) => item.effectiveFrom?.slice(0, 7)).filter(Boolean),
+                    ),
+                  ] as string[]
+                ).map((value) => ({ value, label: value }))}
+                onChange={(value) => {
+                  setEffective(value);
+                  setFilters({ effective: value });
+                }}
+              />
+            </div>
+            <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {filtered.map((agreement) => (
                 <button
                   key={agreement.id}
                   type="button"
-                  onClick={() => setSelectedId(agreement.id)}
+                  onClick={() => {
+                    setSelectedId(agreement.id);
+                    setFilters({ selected: agreement.id });
+                  }}
                   className={`w-full rounded-lg border p-3 text-left ${agreement.id === selected.id ? "border-primary bg-primary/5" : "hover:bg-secondary/50"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -377,7 +552,22 @@ function ContractsPage() {
           </div>
         </div>
       </div>
-      <AgreementWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+      <AgreementWizard
+        open={wizardOpen}
+        onOpenChange={handleWizardOpenChange}
+        onActivated={(agreement) => {
+          setLocalAgreements((current) => [
+            agreement,
+            ...current.filter(
+              (candidate) =>
+                candidate.id !== agreement.id &&
+                candidate.agreementNumber !== agreement.agreementNumber,
+            ),
+          ]);
+          setSelectedId(agreement.id);
+          setFilters({ selected: agreement.id });
+        }}
+      />
     </AppShell>
   );
 }
@@ -385,9 +575,11 @@ function ContractsPage() {
 function AgreementWizard({
   open,
   onOpenChange,
+  onActivated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onActivated: (agreement: RecoveryAgreement) => void;
 }) {
   const [step, setStep] = useState(0);
   const [number, setNumber] = useState("AGR-2026-004");
@@ -397,6 +589,14 @@ function AgreementWizard({
   const [programs, setPrograms] = useState("");
   const [parts, setParts] = useState("");
   const [dcrs, setDcrs] = useState("");
+  const [oem, setOem] = useState("Ford");
+  const [modelYear, setModelYear] = useState("2027");
+  const [partMode, setPartMode] = useState<"existing" | "new" | "revision">("existing");
+  const [partProposal, setPartProposal] = useState("");
+  const [rounding, setRounding] = useState("0.01");
+  const [forecastAssumption, setForecastAssumption] = useState("Development baseline v1");
+  const [evidenceReviewed, setEvidenceReviewed] = useState(false);
+  const [incompleteReason, setIncompleteReason] = useState<string | null>(null);
   const [cost, setCost] = useState("");
   const [rate, setRate] = useState("");
   const [basis, setBasis] = useState<EligibleVolumeBasis>("part_shipments");
@@ -407,17 +607,50 @@ function AgreementWizard({
       toast.error("Use the synthetic original for this credential-free demonstration.");
       return;
     }
-    if (step === 3 && !programs.trim() && !parts.trim()) {
-      toast.error("Link at least one governed program or part.");
+    if (step === 2 && !evidenceReviewed) {
+      toast.error("Review and confirm the agreement evidence before linking recovery records.");
+      return;
+    }
+    if (step === 3 && !programs.trim()) {
+      toast.error("Select a controlled OEM program before continuing.");
+      return;
+    }
+    if (step === 3 && !parts.trim() && !partProposal.trim()) {
+      toast.error("Select an existing part or retain a governed new/revision proposal.");
       return;
     }
     setStep((current) => Math.min(current + 1, WIZARD_STEPS.length - 1));
   };
 
   const finish = () => {
+    if (partMode !== "existing") {
+      const reason =
+        "Activation blocked: a proposed part or revision needs admin duplicate review and approval before recovery can activate.";
+      setIncompleteReason(reason);
+      toast.error(reason);
+      return;
+    }
+    if (!programs || !parts) {
+      const reason =
+        "Activation blocked: select both a controlled program and an existing controlled part/revision.";
+      setIncompleteReason(reason);
+      toast.error(reason);
+      return;
+    }
+    if (rounding !== "0.01") {
+      const reason =
+        "Activation blocked: this version supports the approved half-even policy at a 0.01 settlement boundary only.";
+      setIncompleteReason(reason);
+      toast.error(reason);
+      return;
+    }
+    setIncompleteReason(null);
     try {
       const agreement: RecoveryAgreement = {
-        id: "local-agreement-draft",
+        id: `local-${number
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")}`,
         organizationId: "demo-org",
         agreementNumber: number,
         title,
@@ -429,22 +662,39 @@ function AgreementWizard({
         effectiveFrom,
         ownerId: "Local reviewer",
         documentVersionIds: syntheticOriginal ? ["synthetic-agreement-original.pdf"] : [],
-        programIds: splitValues(programs),
-        modelYearIds: [],
-        partIds: splitValues(parts),
-        dcrIds: splitValues(dcrs),
+        programIds: programs ? [programs] : [],
+        modelYearIds: modelYear ? [modelYear] : [],
+        partIds: parts ? [parts] : partProposal ? [`proposed:${partProposal}`] : [],
+        dcrIds: dcrs ? [dcrs] : [],
         ratePeriods: rate ? [{ effectiveFrom, perUnitRate: rate, currency: "USD" }] : [],
       };
       validateRecoveryAgreement(agreement);
-      submitAgreementForReview(agreement);
-      toast.success(`Agreement draft validated — ${number}`, {
+      const reviewed = submitAgreementForReview(agreement);
+      const approved = approveRecoveryAgreement({
+        agreement: reviewed,
+        approverId: "Synthetic commercial approver",
+        approvalDecisionId: "synthetic-approval-evidence-v1",
+        approvedAt: "2026-08-24T09:00:00Z",
+      });
+      const active = activateRecoveryAgreement(approved, "2026-09-01", {
+        agreementEvidenceReviewed: evidenceReviewed,
+        eligibleVolumeBasisConfirmed: true,
+        roundingMode: "half_even",
+        forecastAssumptionsVersion: forecastAssumption,
+        compatibleLinks: [{ programId: programs, modelYearId: modelYear, partId: parts }],
+        dcrStatuses: dcrs ? [{ id: dcrs, status: "approved" }] : [],
+      });
+      onActivated(active);
+      toast.success(`Synthetic recovery activated — ${number}`, {
         description:
-          "The local draft passed review-entry validation. Approval and activation remain separate permissioned actions.",
+          "Agreement, evidence, linked records and recovery rules passed one atomic synthetic activation. No live posting was created.",
       });
       onOpenChange(false);
       setStep(0);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Agreement validation failed");
+      const reason = error instanceof Error ? error.message : "Agreement validation failed";
+      setIncompleteReason(reason);
+      toast.error(reason);
     }
   };
 
@@ -452,10 +702,11 @@ function AgreementWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Create recovery agreement</DialogTitle>
+          <DialogTitle>Set up / activate recovery</DialogTitle>
           <DialogDescription>
-            Six controlled steps keep the private original, extracted evidence, linked records,
-            recovery rules, and approval decision traceable.
+            One controlled workflow optionally links an approved DCR, then reviews agreement
+            evidence, governed records and recovery rules before an all-or-nothing synthetic
+            activation.
           </DialogDescription>
         </DialogHeader>
         <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6" aria-label="Agreement creation steps">
@@ -517,31 +768,159 @@ function AgreementWizard({
                   Synthetic evidence only · confidence 0.98 · reviewer required
                 </div>
               </div>
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <Checkbox
+                  checked={evidenceReviewed}
+                  onCheckedChange={(checked) => setEvidenceReviewed(checked === true)}
+                  aria-label="Confirm synthetic agreement evidence"
+                />
+                <span>
+                  I reviewed the agreement number, effective date, currency, recoverable cost, and
+                  rate evidence against the synthetic original.
+                </span>
+              </label>
             </div>
           )}
           {step === 3 && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Programs">
-                <Input
-                  value={programs}
-                  onChange={(event) => setPrograms(event.target.value)}
-                  placeholder="F-150 Lightning, Equinox EV"
-                />
+              <Field label="Approved DCR (optional)">
+                <Select
+                  value={dcrs || "none"}
+                  onValueChange={(value) => setDcrs(value === "none" ? "" : value)}
+                >
+                  <SelectTrigger aria-label="Approved DCR">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No DCR — managed externally</SelectItem>
+                    <SelectItem value="DCR-2026-0148">DCR-2026-0148 · Approved</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
-              <Field label="Parts / revisions">
-                <Input
-                  value={parts}
-                  onChange={(event) => setParts(event.target.value)}
-                  placeholder="FO-104582-B"
-                />
+              <Field label="OEM / make">
+                <Select
+                  value={oem}
+                  onValueChange={(value) => {
+                    setOem(value);
+                    setPrograms("");
+                    setParts("");
+                  }}
+                >
+                  <SelectTrigger aria-label="OEM or make">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...new Set(demoPrograms.map((item) => item.oem))].map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
-              <Field label="DCRs">
-                <Input
-                  value={dcrs}
-                  onChange={(event) => setDcrs(event.target.value)}
-                  placeholder="DCR-2026-0148"
-                />
+              <Field label="Program / model">
+                <Select
+                  value={programs || "none"}
+                  onValueChange={(value) => {
+                    const next = value === "none" ? "" : value;
+                    setPrograms(next);
+                    const selected = demoPrograms.find((item) => item.id === next);
+                    setModelYear(
+                      String(selected ? (programModelYears[selected.id]?.[0] ?? 2027) : 2027),
+                    );
+                    setParts("");
+                  }}
+                >
+                  <SelectTrigger aria-label="Program or model">
+                    <SelectValue placeholder="Select controlled program" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select program</SelectItem>
+                    {demoPrograms
+                      .filter((item) => item.oem === oem)
+                      .slice(0, 100)
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} · {item.code}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </Field>
+              <Field label="Model year">
+                <Select value={modelYear} onValueChange={setModelYear}>
+                  <SelectTrigger aria-label="Model year">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {programs ? (
+                      (
+                        programModelYears[
+                          demoPrograms.find((item) => item.id === programs)?.id ?? ""
+                        ] ?? []
+                      ).map((year) => (
+                        <SelectItem key={year} value={String(year)}>
+                          {year}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="2027">2027</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Part choice">
+                <Select
+                  value={partMode}
+                  onValueChange={(value) => setPartMode(value as typeof partMode)}
+                >
+                  <SelectTrigger aria-label="Part choice">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="existing">Existing controlled part</SelectItem>
+                    <SelectItem value="new">Propose new part</SelectItem>
+                    <SelectItem value="revision">Propose effective-dated revision</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {partMode === "existing" ? (
+                <Field label="Part / revision">
+                  <Select
+                    value={parts || "none"}
+                    onValueChange={(value) => setParts(value === "none" ? "" : value)}
+                  >
+                    <SelectTrigger aria-label="Part or revision">
+                      <SelectValue placeholder="Select existing part" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select part</SelectItem>
+                      {demoParts
+                        .filter((item) => !programs || item.programId === programs)
+                        .slice(0, 200)
+                        .map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.partNumber} · {item.description}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : (
+                <Field
+                  label={partMode === "new" ? "Proposed new part number" : "Proposed revision"}
+                >
+                  <Input
+                    value={partProposal}
+                    onChange={(event) => setPartProposal(event.target.value)}
+                    placeholder="Search runs before admin review"
+                  />
+                  <p className="text-xs text-amber-700">
+                    Duplicate/alias check: synthetic warning only; activation retains this as an
+                    incomplete governed proposal.
+                  </p>
+                </Field>
+              )}
               <Field label="Supplier">
                 <Input
                   value={supplier}
@@ -600,6 +979,22 @@ function AgreementWizard({
                   onChange={(event) => setEffectiveFrom(event.target.value)}
                 />
               </Field>
+              <Field label="Currency and rounding">
+                <div className="flex gap-2">
+                  <Input value="USD" disabled />
+                  <Input
+                    value={rounding}
+                    onChange={(event) => setRounding(event.target.value)}
+                    aria-label="Rounding increment"
+                  />
+                </div>
+              </Field>
+              <Field label="Forecast assumption">
+                <Input
+                  value={forecastAssumption}
+                  onChange={(event) => setForecastAssumption(event.target.value)}
+                />
+              </Field>
             </div>
           )}
           {step === 5 && (
@@ -613,18 +1008,28 @@ function AgreementWizard({
                 />
                 <Fact
                   label="Linked scope"
-                  value={`${splitValues(programs).length} programs · ${splitValues(parts).length} parts · ${splitValues(dcrs).length} DCRs`}
+                  value={`${programs ? 1 : 0} program · ${parts || partProposal ? 1 : 0} part/revision · ${dcrs ? 1 : 0} DCR`}
                 />
                 <Fact
                   label="Recovery rule"
-                  value={`${basisLabel(basis)} · USD ${rate || "rate required"}`}
+                  value={`${basisLabel(basis)} · USD ${rate || "rate required"} · round ${rounding} · ${forecastAssumption}`}
                 />
               </div>
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
                 <ShieldCheck className="mr-2 inline h-4 w-4" />
-                Submitting creates a draft under review only. It cannot activate recovery or post
-                accounting without independent approval evidence.
+                Activate atomically creates a clearly synthetic approved effective agreement and
+                linked recovery setup only after every required item validates. A failure retains
+                this explicit incomplete draft and explains the exact missing item; no partial
+                active recovery or posting is created.
               </div>
+              {incompleteReason && (
+                <div
+                  role="status"
+                  className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                >
+                  <strong>Incomplete draft retained:</strong> {incompleteReason}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -647,7 +1052,7 @@ function AgreementWizard({
             </Button>
           ) : (
             <Button onClick={finish}>
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Validate draft
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Activate synthetic recovery
             </Button>
           )}
         </DialogFooter>
@@ -665,6 +1070,39 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       {labelledChildren}
+    </div>
+  );
+}
+function ContractFilter({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id} className="h-8" aria-label={`Filter by ${label}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -703,7 +1141,7 @@ function LinkedRows({
         <div className="mt-1 flex flex-wrap gap-1.5">
           {values.map((value) => (
             <Button key={value} asChild size="sm" variant="outline" className="h-7">
-              <Link to={href}>{value}</Link>
+              <Link to={href}>{linkedRecordLabel(label, value)}</Link>
             </Button>
           ))}
         </div>
@@ -712,6 +1150,15 @@ function LinkedRows({
       )}
     </div>
   );
+}
+function linkedRecordLabel(label: string, value: string): string {
+  if (label === "Programs") {
+    return demoPrograms.find((program) => program.id === value)?.name ?? value;
+  }
+  if (label.startsWith("Parts")) {
+    return demoParts.find((part) => part.id === value)?.partNumber ?? value;
+  }
+  return value;
 }
 function Timeline({
   label,
@@ -733,12 +1180,6 @@ function Timeline({
       </div>
     </div>
   );
-}
-function splitValues(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 function statusLabel(status: RecoveryAgreement["status"]): string {
   return {

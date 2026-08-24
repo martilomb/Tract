@@ -2,7 +2,7 @@
 
 ## Current assumption
 
-Local development uses only installed tooling and synthetic fixtures. No hosted account, paid tier, production connector, notification provider, extraction provider, custom domain, or remote repository has been activated.
+Local development uses installed tooling and synthetic fixtures. The approved GitHub remote and the confirmed non-production Supabase staging project are active for version control and database validation, without an authorized production rollout or paid-service activation. No paid tier, production connector, notification provider, extraction provider, custom domain, or production resource has been activated.
 
 For a low-usage production pilot, the currently verified base estimate is about **US$30 per month**:
 

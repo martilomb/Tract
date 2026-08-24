@@ -26,6 +26,7 @@ All analytical workspaces and exports consume one canonical analysis snapshot ra
 - Over-recovery remains visible but has no automatic accounting treatment.
 - Programs, model years, parts/revisions, DCRs, and recovery agreements are independent canonical records joined by tenant-bound relationships. Recovery activation and calculation require an effective approved agreement.
 - Agreement activation is one database transaction. The administrator-only `app.activate_recovery_agreement` operation locks the agreement, validates approved/effective evidence, controlled program/part links, DCR state when present, currency, and every draft accrual, then activates the agreement and valid accruals together. Any invalid row aborts the transaction; callers cannot directly set an agreement Active.
+- The client domain mirrors that fail-closed boundary for the labelled synthetic workflow: `activateRecoveryAgreement` is a pure all-or-nothing transition requiring reviewed evidence, controlled compatible program/model-year/part links, confirmed volume basis, approved half-even rounding boundary, versioned forecast assumptions, and Approved/Active state for every optional linked DCR. A validation error returns no active record and leaves the explicit draft available for correction; it never claims a database posting.
 - Vehicle-production, ERP, and document sources remain independent. Related values reconcile; no source overwrites another and one economic event cannot post twice.
 
 ## Ingestion boundary
