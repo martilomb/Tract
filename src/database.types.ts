@@ -20,6 +20,7 @@ export type Database = {
           organization_id: string;
           part_id: string;
           program_id: string;
+          recovery_agreement_id: string | null;
           recovery_policy_configuration_id: string;
           settlement_currency: string;
           technical_team_id: string | null;
@@ -36,6 +37,7 @@ export type Database = {
           organization_id: string;
           part_id: string;
           program_id: string;
+          recovery_agreement_id?: string | null;
           recovery_policy_configuration_id: string;
           settlement_currency: string;
           technical_team_id?: string | null;
@@ -52,12 +54,20 @@ export type Database = {
           organization_id?: string;
           part_id?: string;
           program_id?: string;
+          recovery_agreement_id?: string | null;
           recovery_policy_configuration_id?: string;
           settlement_currency?: string;
           technical_team_id?: string | null;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "accrual_recovery_agreement_same_tenant";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
           {
             foreignKeyName: "accruals_dcr_id_fkey";
             columns: ["dcr_id"];
@@ -119,6 +129,13 @@ export type Database = {
             columns: ["program_id"];
             isOneToOne: false;
             referencedRelation: "programs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "accruals_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
             referencedColumns: ["id"];
           },
           {
@@ -445,6 +462,41 @@ export type Database = {
           },
         ];
       };
+      commodities: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          name: string;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "commodities_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       configuration_versions: {
         Row: {
           created_at: string;
@@ -506,65 +558,197 @@ export type Database = {
           },
         ];
       };
+      connector_mapping_versions: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          connector_id: string;
+          created_at: string;
+          field_mappings: Json;
+          id: string;
+          organization_id: string;
+          owner_user_id: string | null;
+          reconciliation_preview: Json;
+          sample_validation: Json;
+          status: string;
+          supersedes_id: string | null;
+          version: number;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          connector_id: string;
+          created_at?: string;
+          field_mappings: Json;
+          id?: string;
+          organization_id: string;
+          owner_user_id?: string | null;
+          reconciliation_preview?: Json;
+          sample_validation?: Json;
+          status?: string;
+          supersedes_id?: string | null;
+          version: number;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          connector_id?: string;
+          created_at?: string;
+          field_mappings?: Json;
+          id?: string;
+          organization_id?: string;
+          owner_user_id?: string | null;
+          reconciliation_preview?: Json;
+          sample_validation?: Json;
+          status?: string;
+          supersedes_id?: string | null;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "connector_mapping_versions_connector_id_fkey";
+            columns: ["connector_id"];
+            isOneToOne: false;
+            referencedRelation: "connectors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "connector_mapping_versions_organization_id_connector_id_fkey";
+            columns: ["organization_id", "connector_id"];
+            isOneToOne: false;
+            referencedRelation: "connectors";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "connector_mapping_versions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "connector_mapping_versions_organization_id_supersedes_id_fkey";
+            columns: ["organization_id", "supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "connector_mapping_versions";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "connector_mapping_versions_supersedes_id_fkey";
+            columns: ["supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "connector_mapping_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       connectors: {
         Row: {
           activation_state: string;
           adapter_type: string;
+          allowed_hosts: string[];
+          authentication_method: string;
           created_at: string;
           credential_reference: string | null;
+          data_categories: Database["public"]["Enums"]["erp_transaction_type"][];
+          delta_behavior: Json;
           documentation_reference: string | null;
           enabled: boolean;
+          endpoint_url: string | null;
+          environment: string;
+          health_state: string;
           id: string;
           ingestion_domain: Database["public"]["Enums"]["ingestion_domain"] | null;
+          last_error_code: string | null;
+          last_error_detail: string | null;
+          last_run_at: string | null;
           license_reference: string | null;
           manual_runs_enabled: boolean;
           mapping_configuration_id: string | null;
           name: string;
+          next_run_at: string | null;
           organization_id: string;
+          owner_user_id: string | null;
           provider_key: string;
+          reconciliation_rules: Json;
+          retry_policy: Json;
           sample_reference: string | null;
           schedule: string | null;
+          source_objects: Json;
           supported_transports: Database["public"]["Enums"]["ingestion_transport"][];
+          time_zone: string;
           updated_at: string;
         };
         Insert: {
           activation_state?: string;
           adapter_type: string;
+          allowed_hosts?: string[];
+          authentication_method?: string;
           created_at?: string;
           credential_reference?: string | null;
+          data_categories?: Database["public"]["Enums"]["erp_transaction_type"][];
+          delta_behavior?: Json;
           documentation_reference?: string | null;
           enabled?: boolean;
+          endpoint_url?: string | null;
+          environment?: string;
+          health_state?: string;
           id?: string;
           ingestion_domain?: Database["public"]["Enums"]["ingestion_domain"] | null;
+          last_error_code?: string | null;
+          last_error_detail?: string | null;
+          last_run_at?: string | null;
           license_reference?: string | null;
           manual_runs_enabled?: boolean;
           mapping_configuration_id?: string | null;
           name: string;
+          next_run_at?: string | null;
           organization_id: string;
+          owner_user_id?: string | null;
           provider_key?: string;
+          reconciliation_rules?: Json;
+          retry_policy?: Json;
           sample_reference?: string | null;
           schedule?: string | null;
+          source_objects?: Json;
           supported_transports?: Database["public"]["Enums"]["ingestion_transport"][];
+          time_zone?: string;
           updated_at?: string;
         };
         Update: {
           activation_state?: string;
           adapter_type?: string;
+          allowed_hosts?: string[];
+          authentication_method?: string;
           created_at?: string;
           credential_reference?: string | null;
+          data_categories?: Database["public"]["Enums"]["erp_transaction_type"][];
+          delta_behavior?: Json;
           documentation_reference?: string | null;
           enabled?: boolean;
+          endpoint_url?: string | null;
+          environment?: string;
+          health_state?: string;
           id?: string;
           ingestion_domain?: Database["public"]["Enums"]["ingestion_domain"] | null;
+          last_error_code?: string | null;
+          last_error_detail?: string | null;
+          last_run_at?: string | null;
           license_reference?: string | null;
           manual_runs_enabled?: boolean;
           mapping_configuration_id?: string | null;
           name?: string;
+          next_run_at?: string | null;
           organization_id?: string;
+          owner_user_id?: string | null;
           provider_key?: string;
+          reconciliation_rules?: Json;
+          retry_policy?: Json;
           sample_reference?: string | null;
           schedule?: string | null;
+          source_objects?: Json;
           supported_transports?: Database["public"]["Enums"]["ingestion_transport"][];
+          time_zone?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -1261,6 +1445,7 @@ export type Database = {
           document_type: string;
           id: string;
           organization_id: string;
+          recovery_agreement_id: string | null;
           status: string;
           title: string;
         };
@@ -1271,6 +1456,7 @@ export type Database = {
           document_type: string;
           id?: string;
           organization_id: string;
+          recovery_agreement_id?: string | null;
           status?: string;
           title: string;
         };
@@ -1281,6 +1467,7 @@ export type Database = {
           document_type?: string;
           id?: string;
           organization_id?: string;
+          recovery_agreement_id?: string | null;
           status?: string;
           title?: string;
         };
@@ -1305,6 +1492,20 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "documents_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "documents_recovery_agreement_same_tenant";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
           },
         ];
       };
@@ -2678,6 +2879,250 @@ export type Database = {
         };
         Relationships: [];
       };
+      part_commodities: {
+        Row: {
+          commodity_id: string;
+          created_at: string;
+          id: string;
+          organization_id: string;
+          part_id: string;
+        };
+        Insert: {
+          commodity_id: string;
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          part_id: string;
+        };
+        Update: {
+          commodity_id?: string;
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          part_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "part_commodities_commodity_id_fkey";
+            columns: ["commodity_id"];
+            isOneToOne: false;
+            referencedRelation: "commodities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_commodities_organization_id_commodity_id_fkey";
+            columns: ["organization_id", "commodity_id"];
+            isOneToOne: false;
+            referencedRelation: "commodities";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_commodities_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_commodities_organization_id_part_id_fkey";
+            columns: ["organization_id", "part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_commodities_part_id_fkey";
+            columns: ["part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      part_program_applications: {
+        Row: {
+          created_at: string;
+          effective_from: string;
+          effective_to: string | null;
+          id: string;
+          organization_id: string;
+          part_id: string;
+          part_revision_id: string | null;
+          program_id: string;
+          program_model_year_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          effective_from: string;
+          effective_to?: string | null;
+          id?: string;
+          organization_id: string;
+          part_id: string;
+          part_revision_id?: string | null;
+          program_id: string;
+          program_model_year_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          effective_from?: string;
+          effective_to?: string | null;
+          id?: string;
+          organization_id?: string;
+          part_id?: string;
+          part_revision_id?: string | null;
+          program_id?: string;
+          program_model_year_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "part_program_applications_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_organization_id_part_id_fkey";
+            columns: ["organization_id", "part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_organization_id_part_revision_id_fkey";
+            columns: ["organization_id", "part_revision_id"];
+            isOneToOne: false;
+            referencedRelation: "part_revisions";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_organization_id_program_id_fkey";
+            columns: ["organization_id", "program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_organization_id_program_model_ye_fkey";
+            columns: ["organization_id", "program_model_year_id"];
+            isOneToOne: false;
+            referencedRelation: "program_model_years";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_part_id_fkey";
+            columns: ["part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_part_revision_id_fkey";
+            columns: ["part_revision_id"];
+            isOneToOne: false;
+            referencedRelation: "part_revisions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_program_id_fkey";
+            columns: ["program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_program_applications_program_model_year_id_fkey";
+            columns: ["program_model_year_id"];
+            isOneToOne: false;
+            referencedRelation: "program_model_years";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      part_revisions: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          description: string | null;
+          effective_from: string;
+          effective_to: string | null;
+          id: string;
+          organization_id: string;
+          part_id: string;
+          revision_code: string;
+          source_dcr_id: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          description?: string | null;
+          effective_from: string;
+          effective_to?: string | null;
+          id?: string;
+          organization_id: string;
+          part_id: string;
+          revision_code: string;
+          source_dcr_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          description?: string | null;
+          effective_from?: string;
+          effective_to?: string | null;
+          id?: string;
+          organization_id?: string;
+          part_id?: string;
+          revision_code?: string;
+          source_dcr_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "part_revisions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_revisions_organization_id_part_id_fkey";
+            columns: ["organization_id", "part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_revisions_organization_id_source_dcr_id_fkey";
+            columns: ["organization_id", "source_dcr_id"];
+            isOneToOne: false;
+            referencedRelation: "dcrs";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "part_revisions_part_id_fkey";
+            columns: ["part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "part_revisions_source_dcr_id_fkey";
+            columns: ["source_dcr_id"];
+            isOneToOne: false;
+            referencedRelation: "dcrs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       part_vehicle_rules: {
         Row: {
           allocation: number;
@@ -3012,6 +3457,61 @@ export type Database = {
           },
         ];
       };
+      program_model_years: {
+        Row: {
+          created_at: string;
+          end_date: string | null;
+          id: string;
+          model_year: number;
+          organization_id: string;
+          program_id: string;
+          start_date: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          end_date?: string | null;
+          id?: string;
+          model_year: number;
+          organization_id: string;
+          program_id: string;
+          start_date?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          end_date?: string | null;
+          id?: string;
+          model_year?: number;
+          organization_id?: string;
+          program_id?: string;
+          start_date?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "program_model_years_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "program_model_years_organization_id_program_id_fkey";
+            columns: ["organization_id", "program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "program_model_years_program_id_fkey";
+            columns: ["program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       programs: {
         Row: {
           code: string;
@@ -3249,6 +3749,417 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "ingestion_batches";
             referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      recovery_agreement_dcrs: {
+        Row: {
+          created_at: string;
+          dcr_id: string;
+          id: string;
+          organization_id: string;
+          recovery_agreement_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          dcr_id: string;
+          id?: string;
+          organization_id: string;
+          recovery_agreement_id: string;
+        };
+        Update: {
+          created_at?: string;
+          dcr_id?: string;
+          id?: string;
+          organization_id?: string;
+          recovery_agreement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recovery_agreement_dcrs_dcr_id_fkey";
+            columns: ["dcr_id"];
+            isOneToOne: false;
+            referencedRelation: "dcrs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_dcrs_organization_id_dcr_id_fkey";
+            columns: ["organization_id", "dcr_id"];
+            isOneToOne: false;
+            referencedRelation: "dcrs";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_dcrs_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_dcrs_organization_id_recovery_agreement_fkey";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_dcrs_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recovery_agreement_model_years: {
+        Row: {
+          created_at: string;
+          id: string;
+          organization_id: string;
+          program_model_year_id: string;
+          recovery_agreement_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          program_model_year_id: string;
+          recovery_agreement_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          program_model_year_id?: string;
+          recovery_agreement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recovery_agreement_model_year_organization_id_program_mode_fkey";
+            columns: ["organization_id", "program_model_year_id"];
+            isOneToOne: false;
+            referencedRelation: "program_model_years";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_model_year_organization_id_recovery_agr_fkey";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_model_years_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_model_years_program_model_year_id_fkey";
+            columns: ["program_model_year_id"];
+            isOneToOne: false;
+            referencedRelation: "program_model_years";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_model_years_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recovery_agreement_parts: {
+        Row: {
+          created_at: string;
+          id: string;
+          organization_id: string;
+          part_id: string;
+          part_revision_id: string | null;
+          recovery_agreement_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          part_id: string;
+          part_revision_id?: string | null;
+          recovery_agreement_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          part_id?: string;
+          part_revision_id?: string | null;
+          recovery_agreement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recovery_agreement_parts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_parts_organization_id_part_id_fkey";
+            columns: ["organization_id", "part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_parts_organization_id_part_revision_id_fkey";
+            columns: ["organization_id", "part_revision_id"];
+            isOneToOne: false;
+            referencedRelation: "part_revisions";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_parts_organization_id_recovery_agreemen_fkey";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_parts_part_id_fkey";
+            columns: ["part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_parts_part_revision_id_fkey";
+            columns: ["part_revision_id"];
+            isOneToOne: false;
+            referencedRelation: "part_revisions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_parts_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recovery_agreement_programs: {
+        Row: {
+          created_at: string;
+          id: string;
+          organization_id: string;
+          program_id: string;
+          recovery_agreement_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          program_id: string;
+          recovery_agreement_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          program_id?: string;
+          recovery_agreement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recovery_agreement_programs_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_programs_organization_id_program_id_fkey";
+            columns: ["organization_id", "program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_programs_organization_id_recovery_agree_fkey";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_programs_program_id_fkey";
+            columns: ["program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_programs_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recovery_agreement_rate_periods: {
+        Row: {
+          created_at: string;
+          currency: string;
+          effective_from: string;
+          effective_to: string | null;
+          id: string;
+          organization_id: string;
+          per_unit_rate: number;
+          recovery_agreement_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          currency: string;
+          effective_from: string;
+          effective_to?: string | null;
+          id?: string;
+          organization_id: string;
+          per_unit_rate: number;
+          recovery_agreement_id: string;
+        };
+        Update: {
+          created_at?: string;
+          currency?: string;
+          effective_from?: string;
+          effective_to?: string | null;
+          id?: string;
+          organization_id?: string;
+          per_unit_rate?: number;
+          recovery_agreement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recovery_agreement_rate_perio_organization_id_recovery_agr_fkey";
+            columns: ["organization_id", "recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_rate_periods_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreement_rate_periods_recovery_agreement_id_fkey";
+            columns: ["recovery_agreement_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recovery_agreements: {
+        Row: {
+          agreement_number: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          effective_from: string | null;
+          effective_to: string | null;
+          eligible_volume_basis: Database["public"]["Enums"]["eligible_volume_basis"];
+          expires_on: string | null;
+          id: string;
+          organization_id: string;
+          owner_user_id: string | null;
+          recoverable_cost: number;
+          settlement_currency: string;
+          status: Database["public"]["Enums"]["recovery_agreement_status"];
+          supersedes_id: string | null;
+          supplier_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          agreement_number: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          eligible_volume_basis: Database["public"]["Enums"]["eligible_volume_basis"];
+          expires_on?: string | null;
+          id?: string;
+          organization_id: string;
+          owner_user_id?: string | null;
+          recoverable_cost: number;
+          settlement_currency: string;
+          status?: Database["public"]["Enums"]["recovery_agreement_status"];
+          supersedes_id?: string | null;
+          supplier_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          agreement_number?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          effective_from?: string | null;
+          effective_to?: string | null;
+          eligible_volume_basis?: Database["public"]["Enums"]["eligible_volume_basis"];
+          expires_on?: string | null;
+          id?: string;
+          organization_id?: string;
+          owner_user_id?: string | null;
+          recoverable_cost?: number;
+          settlement_currency?: string;
+          status?: Database["public"]["Enums"]["recovery_agreement_status"];
+          supersedes_id?: string | null;
+          supplier_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recovery_agreements_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreements_organization_id_supersedes_id_fkey";
+            columns: ["organization_id", "supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreements_organization_id_supplier_id_fkey";
+            columns: ["organization_id", "supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreements_supersedes_id_fkey";
+            columns: ["supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "recovery_agreements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recovery_agreements_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -4050,6 +4961,8 @@ export type Database = {
       job_status: "pending" | "processing" | "completed" | "failed" | "cancelled";
       organization_role: "administrator" | "full_view" | "member";
       permission_name: "read" | "write" | "approve";
+      recovery_agreement_status:
+        "draft" | "under_review" | "approved" | "active" | "expired" | "superseded" | "rejected";
       vehicle_volume_kind: "actual" | "forecast" | "revised" | "scenario";
     };
     CompositeTypes: {
@@ -4233,6 +5146,15 @@ export const Constants = {
       job_status: ["pending", "processing", "completed", "failed", "cancelled"],
       organization_role: ["administrator", "full_view", "member"],
       permission_name: ["read", "write", "approve"],
+      recovery_agreement_status: [
+        "draft",
+        "under_review",
+        "approved",
+        "active",
+        "expired",
+        "superseded",
+        "rejected",
+      ],
       vehicle_volume_kind: ["actual", "forecast", "revised", "scenario"],
     },
   },

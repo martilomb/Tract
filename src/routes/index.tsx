@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { StatCard, StatusPill } from "@/components/stat-card";
-import { NewProgramDialog } from "@/components/new-program-dialog";
+import { CreateProgramDialog } from "@/components/create-program-dialog";
 import {
   DollarSign,
   TrendingUp,
@@ -16,6 +16,12 @@ import {
   Banknote,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
 } from "lucide-react";
 import {
   Area,
@@ -43,6 +49,7 @@ import {
 } from "@/lib/demo-data";
 import { useDataset } from "@/lib/commodity";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -51,18 +58,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { OemMark } from "@/components/oem-badge";
-import { vehicleImage } from "@/lib/vehicle-images";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  HierarchicalProgramSelector,
+  type HierarchySelection,
+} from "@/components/hierarchical-program-selector";
 
 export const Route = createFileRoute("/")({
   component: Overview,
 });
+
+type ProgramSortKey = "name" | "recoveredToDate" | "totalAmortized" | "status";
+type ProgramSortDirection = "ascending" | "descending" | "none";
+const OVERVIEW_PROGRAM_PAGE_SIZE = 25;
 
 // ---- Per-program chart series: actual → forecast to reach total → over-recovery projection ----
 function buildProgramSeries(p: (typeof _allPrograms)[number]) {
@@ -348,7 +355,7 @@ function KpiDetailDialog({
       ),
     },
     over: {
-      title: "Over-recovery balance — disposition review",
+      title: "Over-recovery balance — accounting treatment review",
       body: (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
@@ -505,16 +512,64 @@ function Overview() {
   } = useAggregates();
   const [detail, setDetail] = useState<DetailKey>(null);
   const fallbackProgramId = programs[0]?.id ?? _allPrograms[0].id;
-  const [selectedProgramId, setSelectedProgramId] = useState<string>(fallbackProgramId);
+  const [selection, setSelection] = useState<HierarchySelection>({
+    oem: "all",
+    programId: fallbackProgramId,
+    modelYear: "all",
+  });
+  const [programQuery, setProgramQuery] = useState("");
+  const [programSortKey, setProgramSortKey] = useState<ProgramSortKey>("name");
+  const [programSortDirection, setProgramSortDirection] =
+    useState<ProgramSortDirection>("ascending");
+  const [programPage, setProgramPage] = useState(1);
   const selectedProgram = useMemo(() => {
     const source = programs.length ? programs : _allPrograms;
-    return source.find((p) => p.id === selectedProgramId) ?? source[0];
-  }, [selectedProgramId, programs]);
+    return source.find((p) => p.id === selection.programId) ?? source[0];
+  }, [selection.programId, programs]);
   const { data: programSeries, breakEvenMonth: programBreakEven } = useMemo(
     () => buildProgramSeries(selectedProgram),
     [selectedProgram],
   );
   const projectedOver = selectedProgram.forecastRecovery - selectedProgram.totalAmortized;
+  const sortedPrograms = useMemo(() => {
+    const query = programQuery.trim().toLowerCase();
+    const matching = programs.filter((program) =>
+      [program.name, program.oem, program.code, program.platform].some((value) =>
+        value.toLowerCase().includes(query),
+      ),
+    );
+    if (programSortDirection === "none") return matching;
+    const multiplier = programSortDirection === "ascending" ? 1 : -1;
+    return [...matching].sort((left, right) => {
+      const a = left[programSortKey];
+      const b = right[programSortKey];
+      return (
+        (typeof a === "number" && typeof b === "number"
+          ? a - b
+          : String(a).localeCompare(String(b))) * multiplier
+      );
+    });
+  }, [programQuery, programSortDirection, programSortKey, programs]);
+  const programPageCount = Math.max(
+    1,
+    Math.ceil(sortedPrograms.length / OVERVIEW_PROGRAM_PAGE_SIZE),
+  );
+  const safeProgramPage = Math.min(programPage, programPageCount);
+  const visiblePrograms = sortedPrograms.slice(
+    (safeProgramPage - 1) * OVERVIEW_PROGRAM_PAGE_SIZE,
+    safeProgramPage * OVERVIEW_PROGRAM_PAGE_SIZE,
+  );
+  const toggleProgramSort = (key: ProgramSortKey) => {
+    if (key !== programSortKey || programSortDirection === "none") {
+      setProgramSortKey(key);
+      setProgramSortDirection("ascending");
+    } else if (programSortDirection === "ascending") {
+      setProgramSortDirection("descending");
+    } else {
+      setProgramSortDirection("none");
+    }
+    setProgramPage(1);
+  };
 
   const OVER_COLORS: Record<string, string> = {
     "at-risk": "oklch(0.62 0.22 25)",
@@ -531,7 +586,7 @@ function Overview() {
           <Button variant="outline" size="sm" disabled title="Connect production data to export">
             <Download className="mr-1.5 h-4 w-4" /> Export
           </Button>
-          <NewProgramDialog
+          <CreateProgramDialog
             trigger={
               <Button size="sm">
                 <Plus className="mr-1.5 h-4 w-4" /> New program
@@ -595,7 +650,7 @@ function Overview() {
         </ClickableKpi>
         <ClickableKpi onClick={() => setDetail("over")}>
           <StatCard
-            label="MY 2026 · disposition pending"
+            label="MY 2026 · accounting treatment pending"
             value={formatMoney(
               (overRecoveryBreakdown.find((b) => b.key === "available")?.amount ?? 0) * 0.62,
               { compact: true },
@@ -606,6 +661,17 @@ function Overview() {
             accent="success"
           />
         </ClickableKpi>
+      </div>
+
+      <div className="mt-6 card-elevated p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          OEM → program / model → model year
+        </div>
+        <HierarchicalProgramSelector
+          programs={programs.length ? programs : _allPrograms}
+          value={selection}
+          onChange={setSelection}
+        />
       </div>
 
       {/* Main chart + insights */}
@@ -637,27 +703,16 @@ function Overview() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
-                  <SelectTrigger className="h-8 w-[220px] border-white/20 bg-white/10 text-xs text-white [&>span]:text-white">
-                    <SelectValue placeholder="Select program" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {programs.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.name} · {p.oem}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 <StatusPill {...statusMeta[selectedProgram.status]} />
               </div>
             </div>
-            <div className="pointer-events-none relative mt-1 flex h-20 items-end justify-end pr-2">
-              <img
-                src={vehicleImage(selectedProgram.id, selectedProgram.name)}
-                alt=""
-                className="max-h-[130%] w-auto object-contain drop-shadow-[0_16px_24px_rgba(0,0,0,0.45)]"
-              />
+            <div className="relative mt-5 flex flex-wrap gap-2 pb-2 text-xs text-white/75">
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
+                Program {selectedProgram.code}
+              </span>
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
+                {selectedProgram.platform}
+              </span>
             </div>
           </div>
           <div className="p-5 pt-4">
@@ -794,7 +849,7 @@ function Overview() {
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand/10 text-brand">
                 <FileClock className="h-4 w-4" />
               </div>
-              <h2 className="text-base font-semibold">Scenario exceptions</h2>
+              <h2 className="text-base font-semibold">Forecast risks and variances</h2>
             </div>
             <span className="text-xs text-muted-foreground">Synthetic development rules</span>
           </div>
@@ -818,6 +873,12 @@ function Overview() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium leading-snug">{i.title}</div>
                     <p className="mt-1 text-xs text-muted-foreground">{i.body}</p>
+                    <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
+                      <span>Calculation: Development baseline v1</span>
+                      <span>Cause: Volume-to-contract variance</span>
+                      <span>Threshold: Program contract basis</span>
+                      <span>Evidence: Staged volume provenance</span>
+                    </div>
                     <div className="mt-2 flex items-center justify-between">
                       <span
                         className={
@@ -829,10 +890,11 @@ function Overview() {
                         {formatMoney(Math.abs(i.delta), { compact: true })}
                       </span>
                       <Link
-                        to="/programs"
+                        to="/forecasts"
+                        search={{ programId: i.programId }}
                         className="inline-flex items-center text-xs font-medium text-brand hover:underline"
                       >
-                        Review <ArrowRight className="ml-0.5 h-3 w-3" />
+                        Open program calculation <ArrowRight className="ml-0.5 h-3 w-3" />
                       </Link>
                     </div>
                   </div>
@@ -849,7 +911,7 @@ function Overview() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold">Over-recovery pool</h2>
-              <p className="text-xs text-muted-foreground">By contractual disposition</p>
+              <p className="text-xs text-muted-foreground">By accounting-treatment review state</p>
             </div>
             <button
               onClick={() => setDetail("over")}
@@ -933,7 +995,9 @@ function Overview() {
                       Review required
                     </span>
                   </div>
-                  <h2 className="mt-2 text-base font-semibold">Disposition not determined</h2>
+                  <h2 className="mt-2 text-base font-semibold">
+                    Accounting treatment not determined
+                  </h2>
                   <p className="text-xs text-muted-foreground">
                     2026 over-recoveries awaiting contract and accounting review
                   </p>
@@ -1098,18 +1162,59 @@ function Overview() {
             </Link>
           </div>
           <div className="mt-4 max-h-[380px] overflow-y-auto rounded-lg border border-border">
+            <div className="sticky left-0 top-0 z-20 border-b bg-background p-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={programQuery}
+                  onChange={(event) => {
+                    setProgramQuery(event.target.value);
+                    setProgramPage(1);
+                  }}
+                  aria-label="Filter active programs"
+                  placeholder="Filter program, OEM, code, or platform"
+                  className="h-8 pl-9"
+                />
+              </div>
+            </div>
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-secondary/90 text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Program</th>
-                  <th className="px-3 py-2 text-right font-medium">Recovered</th>
-                  <th className="px-3 py-2 text-right font-medium">Contract</th>
+                  <ProgramSortHead
+                    label="Program"
+                    sortKey="name"
+                    activeKey={programSortKey}
+                    direction={programSortDirection}
+                    onSort={toggleProgramSort}
+                  />
+                  <ProgramSortHead
+                    label="Recovered"
+                    sortKey="recoveredToDate"
+                    activeKey={programSortKey}
+                    direction={programSortDirection}
+                    onSort={toggleProgramSort}
+                    align="right"
+                  />
+                  <ProgramSortHead
+                    label="Contract"
+                    sortKey="totalAmortized"
+                    activeKey={programSortKey}
+                    direction={programSortDirection}
+                    onSort={toggleProgramSort}
+                    align="right"
+                  />
                   <th className="px-3 py-2 text-left font-medium">Progress</th>
-                  <th className="px-3 py-2 text-left font-medium">Status</th>
+                  <ProgramSortHead
+                    label="Status"
+                    sortKey="status"
+                    activeKey={programSortKey}
+                    direction={programSortDirection}
+                    onSort={toggleProgramSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {programs.map((p) => {
+                {visiblePrograms.map((p) => {
                   const pct = Math.min(100, (p.recoveredToDate / p.totalAmortized) * 100);
                   const fpct = Math.min(120, (p.forecastRecovery / p.totalAmortized) * 100);
                   return (
@@ -1157,6 +1262,37 @@ function Overview() {
               </tbody>
             </table>
           </div>
+          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Showing{" "}
+              {sortedPrograms.length === 0
+                ? 0
+                : (safeProgramPage - 1) * OVERVIEW_PROGRAM_PAGE_SIZE + 1}
+              –{Math.min(safeProgramPage * OVERVIEW_PROGRAM_PAGE_SIZE, sortedPrograms.length)} of{" "}
+              {sortedPrograms.length} matching programs
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safeProgramPage === 1}
+                onClick={() => setProgramPage((current) => Math.max(1, current - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous
+              </Button>
+              <span className="font-mono">
+                Page {safeProgramPage} of {programPageCount}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safeProgramPage === programPageCount}
+                onClick={() => setProgramPage((current) => Math.min(programPageCount, current + 1))}
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           <div className="mt-4 flex items-center gap-6 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5" /> {programs.reduce((s, p) => s + p.partsCount, 0)}{" "}
@@ -1175,6 +1311,44 @@ function Overview() {
         which={detail}
       />
     </AppShell>
+  );
+}
+
+function ProgramSortHead({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: ProgramSortKey;
+  activeKey: ProgramSortKey;
+  direction: ProgramSortDirection;
+  onSort: (key: ProgramSortKey) => void;
+  align?: "left" | "right";
+}) {
+  const activeDirection = activeKey === sortKey ? direction : "none";
+  const Icon =
+    activeDirection === "ascending"
+      ? ArrowUp
+      : activeDirection === "descending"
+        ? ArrowDown
+        : ArrowUpDown;
+  return (
+    <th
+      className={`px-3 py-2 font-medium ${align === "right" ? "text-right" : "text-left"}`}
+      aria-sort={activeDirection}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+      >
+        {label} <Icon className="h-3 w-3" />
+      </button>
+    </th>
   );
 }
 

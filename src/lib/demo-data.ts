@@ -1344,7 +1344,7 @@ export const oemSummary = [
 ];
 
 // Synthetic over-recovery balance grouped by review state. These buckets do
-// not authorize or imply any accounting disposition.
+// not authorize or imply any accounting treatment.
 export interface OverRecoveryBucket {
   key: "at-risk" | "pending" | "available";
   label: string;
@@ -1367,9 +1367,9 @@ export const overRecoveryBreakdown: OverRecoveryBucket[] = [
   },
   {
     key: "available",
-    label: "Disposition review",
+    label: "Accounting treatment review",
     amount: 6_000_000,
-    description: "Evidence assembled; accounting disposition remains unconfirmed.",
+    description: "Evidence assembled; accounting treatment remains unconfirmed.",
   },
 ];
 
@@ -1429,7 +1429,7 @@ export const scenarioInsights = [
     id: "i1",
     severity: "high" as const,
     title: "F-150 Lightning volumes tracking 35% below contract",
-    body: "The development scenario projects a $1.5M under-recovery by EOP. Review contract evidence before considering a claim.",
+    body: "The development scenario projects a $1.5M under-recovery by EOP. Review contract evidence before assigning any remedy.",
     programId: "p-001",
     delta: -1_500_000,
   },
@@ -1453,7 +1453,7 @@ export const scenarioInsights = [
     id: "i4",
     severity: "low" as const,
     title: "Equinox EV break-even reached on 22 parts",
-    body: "22 part numbers have crossed amortization break-even. Future shipments generate margin — update accrual model.",
+    body: "22 part numbers have crossed amortization break-even. Any later accounting treatment remains subject to approved policy.",
     programId: "p-002",
     delta: 420_000,
   },
@@ -1475,7 +1475,7 @@ for (const p of programs) {
 
 export type YearBucket =
   | "closed-over" // closed demonstration year with over-recovery
-  | "closed-claim" // 2022 closed, under-recovered → pursuing OEM claim
+  | "closed-claim" // internal legacy key for a closed, under-recovered demonstration year
   | "achieved" // 2023/24 recovered to target
   | "over" // 2023/24 over-recovered
   | "shipping" // 2025/26 in flight, on-track
@@ -1529,7 +1529,7 @@ export function getYearlyStatus(program: Program): YearlyStatus[] {
         ratio = 0.72 + s * 0.15; // under-recovered
         bucket = "closed-claim";
       } else {
-        ratio = 1.06 + s * 0.14; // over-recovered; disposition not inferred
+        ratio = 1.06 + s * 0.14; // over-recovered; accounting treatment not inferred
         bucket = "closed-over";
       }
     } else if (year === 2023 || year === 2024) {
@@ -1571,8 +1571,8 @@ export const yearBucketMeta: Record<
     dot: "bg-success",
   },
   "closed-claim": {
-    label: "Closed · Pursuing OEM claim",
-    short: "Claim",
+    label: "Closed · Under-recovery review",
+    short: "Review",
     className: "bg-destructive/15 text-destructive border-destructive/30",
     dot: "bg-destructive",
   },

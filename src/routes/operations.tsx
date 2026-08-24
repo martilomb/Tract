@@ -1,13 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  Cable,
-  CheckCircle2,
-  FileSearch,
-  FileSpreadsheet,
-  ServerCog,
-  TriangleAlert,
-} from "lucide-react";
+import { Cable, FileSearch, FileSpreadsheet, Map, Plus, ServerCog, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -52,13 +45,19 @@ const ingestionDomains = [
 ] as const;
 
 const ingestionLifecycle = [
-  "Received",
-  "Staged",
-  "Validated",
-  "Mapped",
-  "Reviewed",
-  "Approved",
-  "Posted",
+  { name: "Received", detail: "Original source object and fingerprint recorded." },
+  { name: "Staged", detail: "Immutable raw rows retained separately from business records." },
+  {
+    name: "Validated",
+    detail: "Required identifiers, dates, units, currencies, and formats checked.",
+  },
+  { name: "Mapped", detail: "Approved mapping version produced canonical candidates." },
+  { name: "Reviewed", detail: "A named reviewer resolved warnings and confirmed evidence." },
+  {
+    name: "Approved",
+    detail: "A permissioned approval made the candidate immutable except for posting.",
+  },
+  { name: "Posted", detail: "A unique economic-event key prevents duplicate business posting." },
 ] as const;
 
 const documentFieldLabels: Readonly<Record<string, string>> = {
@@ -80,42 +79,15 @@ interface ReviewDraft {
   reason: string;
 }
 
-const adapters = [
-  {
-    name: "CSV staging",
-    state: "implemented",
-    detail: "Quoted fields, validation, preview, provenance, and idempotency fingerprint",
-  },
-  {
-    name: "Excel staging",
-    state: "implemented",
-    detail: "Server-only first-worksheet reader with the same validation pipeline",
-  },
-  {
-    name: "Generic REST",
-    state: "contract",
-    detail:
-      "HTTPS, allowlisted hosts, opaque credential references, retries, and reconciliation required",
-  },
-  {
-    name: "IHS / AFS vehicle volume",
-    state: "not connected",
-    detail:
-      "Common file/API boundary; licensing, samples, documentation, and credentials are required",
-  },
-  {
-    name: "SAP",
-    state: "not connected",
-    detail: "Adapter boundary documented; specifications and credentials are required",
-  },
-] as const;
-
 function OperationsPage() {
   const [csv, setCsv] = useState(SAMPLE_CSV);
   const [staged, setStaged] = useState<readonly StagedVehicleVolumeRow[]>([]);
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
   const [reviewDrafts, setReviewDrafts] = useState<Readonly<Record<string, ReviewDraft>>>({});
   const [postingCount, setPostingCount] = useState<number | null>(null);
+  const [selectedLifecycle, setSelectedLifecycle] = useState<(typeof ingestionLifecycle)[number]>(
+    ingestionLifecycle[0],
+  );
 
   const stage = () => {
     try {
@@ -170,19 +142,6 @@ function OperationsPage() {
     toast.info("Document registered with the deterministic adapter", {
       description: "No file was uploaded and no external model was called.",
     });
-  };
-
-  const inspectDocument = async (file: File | undefined) => {
-    if (!file) return;
-    if (!["application/pdf", "image/png", "image/jpeg"].includes(file.type)) {
-      toast.error("Choose a PDF, PNG, or JPEG document.");
-      return;
-    }
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error("The development document limit is 25 MiB.");
-      return;
-    }
-    await beginDocumentReview(new Uint8Array(await file.arrayBuffer()));
   };
 
   const startSyntheticDocumentReview = () =>
@@ -265,7 +224,21 @@ function OperationsPage() {
   return (
     <AppShell
       title="Operations"
-      description="Import, document, connector, and configuration extension points."
+      description="Review imports, resolve exceptions, reconcile results, and manage governed operating rules."
+      actions={
+        <>
+          <Button asChild size="sm">
+            <Link to="/connections">
+              <Plus className="mr-1.5 h-4 w-4" /> Add connection
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/connections">
+              <Cable className="mr-1.5 h-4 w-4" /> Manage connections
+            </Link>
+          </Button>
+        </>
+      }
     >
       <Card className="mb-5">
         <CardHeader>
@@ -287,8 +260,16 @@ function OperationsPage() {
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Ingestion lifecycle">
             {ingestionLifecycle.map((status, index) => (
-              <div key={status} className="flex items-center gap-2">
-                <Badge variant={status === "Posted" ? "secondary" : "outline"}>{status}</Badge>
+              <div key={status.name} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedLifecycle(status)}
+                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Badge variant={selectedLifecycle.name === status.name ? "secondary" : "outline"}>
+                    {status.name}
+                  </Badge>
+                </button>
                 {index < ingestionLifecycle.length - 1 && (
                   <span className="text-muted-foreground" aria-hidden="true">
                     →
@@ -296,6 +277,10 @@ function OperationsPage() {
                 )}
               </div>
             ))}
+          </div>
+          <div className="mt-3 rounded-lg border bg-secondary/30 p-3 text-sm">
+            <span className="font-medium">{selectedLifecycle.name}:</span>{" "}
+            <span className="text-muted-foreground">{selectedLifecycle.detail}</span>
           </div>
         </CardContent>
       </Card>
@@ -364,22 +349,17 @@ function OperationsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <FileSearch className="h-4 w-4" /> Document extraction review
+              <FileSearch className="h-4 w-4" /> Document review exceptions
             </CardTitle>
             <CardDescription>
-              Private-storage lifecycle and provider interface without a paid runtime extraction
-              service.
+              Resolve evidence and correction issues across contract reviews. New originals begin in
+              Contracts.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Label htmlFor="document-review-file">Document for local review</Label>
-            <Input
-              id="document-review-file"
-              type="file"
-              accept="application/pdf,image/png,image/jpeg"
-              className="mt-2"
-              onChange={(event) => void inspectDocument(event.target.files?.[0])}
-            />
+            <Button asChild size="sm" variant="outline">
+              <Link to="/contracts">Open Contracts for originals</Link>
+            </Button>
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
               The deterministic adapter creates configured empty fields for manual review. It does
               not read content, upload data, or make an external request.
@@ -479,36 +459,43 @@ function OperationsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Cable className="h-4 w-4" /> Connector registry
+              <Cable className="h-4 w-4" /> Data connections
             </CardTitle>
             <CardDescription>
-              Declarative mappings only; customer-supplied executable code is never accepted.
+              Enterprise administrators can configure approved files and APIs without editing source
+              code.
             </CardDescription>
           </CardHeader>
-          <CardContent className="divide-y rounded-lg border p-0">
-            {adapters.map((adapter) => (
-              <div key={adapter.name} className="flex items-start gap-3 p-4">
-                {adapter.state === "implemented" ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                ) : (
-                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-medium">{adapter.name}</span>
-                    <Badge variant="outline">{adapter.state}</Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{adapter.detail}</p>
-                </div>
-              </div>
-            ))}
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            <Button asChild variant="outline" className="h-auto justify-start py-3">
+              <Link to="/connections">
+                <Plus className="mr-2 h-4 w-4" /> Add connection
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto justify-start py-3">
+              <Link to="/connections">
+                <Map className="mr-2 h-4 w-4" /> Map fields
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto justify-start py-3">
+              <Link to="/connections">
+                <Wrench className="mr-2 h-4 w-4" /> Resolve errors
+              </Link>
+            </Button>
+            <div className="rounded-lg border p-3 text-sm sm:col-span-3">
+              <div className="font-medium">SAP / ERP live connection is not active</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use the guided draft, safe sample validation, and CSV/Excel fallback. Customer
+                specifications and runtime credentials are still required for a live test.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <ServerCog className="h-4 w-4" /> Versioned configuration
+              <ServerCog className="h-4 w-4" /> Rules and Policies
             </CardTitle>
             <CardDescription>
               Changes require permission, effective date, version increment, and audit history.

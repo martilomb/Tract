@@ -1,5 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
+import { CreatePartRevisionDialog } from "@/components/create-part-revision-dialog";
+import {
+  HierarchicalProgramSelector,
+  type HierarchySelection,
+} from "@/components/hierarchical-program-selector";
 import { StatusPill } from "@/components/stat-card";
 import {
   statusMeta,
@@ -31,16 +36,42 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
-import { Download, Filter, Search, FileText, X, Printer } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Filter,
+  Search,
+  FileText,
+  X,
+  Printer,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { OemMark } from "@/components/oem-badge";
 import { commodityImage } from "@/lib/part-images";
 import { useCommodity } from "@/lib/commodity";
+import { buildBoundedTablePage, type TableSortDirection } from "@/domain/bounded-table";
 
 export const Route = createFileRoute("/parts")({
   component: PartsPage,
 });
+
+type PartSortKey =
+  | "partNumber"
+  | "description"
+  | "programName"
+  | "piecePrice"
+  | "amortizedPerPiece"
+  | "shippedVolume"
+  | "recoveredToDate"
+  | "breakEvenDate"
+  | "status";
+type SortDirection = TableSortDirection;
+const PAGE_SIZE = 50;
 
 function PartsPage() {
   const { parts, programs } = useDataset();
@@ -52,6 +83,14 @@ function PartsPage() {
   const [minAmort, setMinAmort] = useState<number>(0);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [dcrPart, setDcrPart] = useState<Part | null>(null);
+  const [sortKey, setSortKey] = useState<PartSortKey>("partNumber");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("ascending");
+  const [page, setPage] = useState(1);
+  const [hierarchy, setHierarchy] = useState<HierarchySelection>({
+    oem: "all",
+    programId: "all",
+    modelYear: "all",
+  });
 
   const oems = useMemo(() => Array.from(new Set(parts.map((p) => p.oem))).sort(), [parts]);
 
@@ -73,6 +112,46 @@ function PartsPage() {
       return matches && s && o && pr && shipOk && amortOk;
     });
   }, [parts, query, statusFilter, oemFilter, programFilter, minShipPct, minAmort]);
+
+  const tablePage = useMemo(
+    () =>
+      buildBoundedTablePage({
+        rows: filtered,
+        page,
+        pageSize: PAGE_SIZE,
+        direction: sortDirection,
+        compare: (left, right) => {
+          const a = left[sortKey];
+          const b = right[sortKey];
+          return typeof a === "number" && typeof b === "number"
+            ? a - b
+            : String(a).localeCompare(String(b));
+        },
+      }),
+    [filtered, page, sortDirection, sortKey],
+  );
+  const pageCount = tablePage.pageCount;
+  const visibleParts = tablePage.rows;
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter, oemFilter, programFilter, minShipPct, minAmort]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const toggleSort = (key: PartSortKey) => {
+    if (sortKey !== key || sortDirection === "none") {
+      setSortKey(key);
+      setSortDirection("ascending");
+    } else if (sortDirection === "ascending") {
+      setSortDirection("descending");
+    } else {
+      setSortDirection("none");
+    }
+    setPage(1);
+  };
 
   const advancedActive =
     oemFilter !== "all" || programFilter !== "all" || minShipPct > 0 || minAmort > 0;
@@ -180,7 +259,7 @@ function PartsPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs">OEM</Label>
                   <Select value={oemFilter} onValueChange={setOemFilter}>
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-8" aria-label="Advanced OEM filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -196,7 +275,7 @@ function PartsPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs">Program</Label>
                   <Select value={programFilter} onValueChange={setProgramFilter}>
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-8" aria-label="Advanced program filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -215,6 +294,7 @@ function PartsPage() {
                     <span className="font-mono text-xs text-muted-foreground">{minShipPct}%</span>
                   </div>
                   <Slider
+                    aria-label="Minimum shipped percentage"
                     value={[minShipPct]}
                     onValueChange={(v) => setMinShipPct(v[0])}
                     max={100}
@@ -229,6 +309,7 @@ function PartsPage() {
                     </span>
                   </div>
                   <Slider
+                    aria-label="Minimum total amortized"
                     value={[minAmort]}
                     onValueChange={(v) => setMinAmort(v[0])}
                     max={2_000_000}
@@ -241,9 +322,31 @@ function PartsPage() {
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="mr-1.5 h-4 w-4" /> Export CSV
           </Button>
+          <CreatePartRevisionDialog trigger={<Button size="sm">Create part or revision</Button>} />
         </>
       }
     >
+      <div className="mb-5 card-elevated p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          OEM → program / model → model year → part / revision
+        </div>
+        <HierarchicalProgramSelector
+          programs={programs}
+          parts={parts}
+          value={hierarchy}
+          showPart
+          onChange={(selection) => {
+            setHierarchy(selection);
+            setOemFilter(selection.oem);
+            setProgramFilter(selection.programId);
+            if (selection.partId) {
+              const part = parts.find((candidate) => candidate.id === selection.partId);
+              if (part) setQuery(part.partNumber);
+            }
+            setPage(1);
+          }}
+        />
+      </div>
       <CommodityHero />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-sm">
@@ -296,29 +399,91 @@ function PartsPage() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-secondary/90 backdrop-blur text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Part #</th>
-                <th className="px-4 py-3 text-left font-medium">Description</th>
-                <th className="px-4 py-3 text-left font-medium">Program</th>
-                <th className="px-4 py-3 text-right font-medium">Piece $</th>
-                <th className="px-4 py-3 text-right font-medium">Amort/pc</th>
-                <th className="px-4 py-3 text-right font-medium">Shipped / Contract</th>
-                <th className="px-4 py-3 text-right font-medium">Recovered</th>
-                <th className="px-4 py-3 text-right font-medium">Break-even</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
+                <SortableHead
+                  label="Part #"
+                  sortKey="partNumber"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="Description"
+                  sortKey="description"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="Program"
+                  sortKey="programName"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="Piece $"
+                  sortKey="piecePrice"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortableHead
+                  label="Amort/pc"
+                  sortKey="amortizedPerPiece"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortableHead
+                  label="Shipped / Contract"
+                  sortKey="shippedVolume"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortableHead
+                  label="Recovered"
+                  sortKey="recoveredToDate"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortableHead
+                  label="Break-even"
+                  sortKey="breakEvenDate"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortableHead
+                  label="Status"
+                  sortKey="status"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={toggleSort}
+                />
                 <th className="px-4 py-3 text-center font-medium">DCR</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((p) => {
+              {visibleParts.map((p) => {
                 const shipPct = (p.shippedVolume / p.contractedVolume) * 100;
                 return (
-                  <tr
-                    key={p.id}
-                    onClick={() => setSelectedPart(p)}
-                    className="cursor-pointer hover:bg-secondary/40"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-brand">
-                      {p.partNumber}
+                  <tr key={p.id} className="hover:bg-secondary/40">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPart(p)}
+                        className="font-mono text-xs font-semibold text-brand underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`View details for ${p.partNumber}`}
+                      >
+                        {p.partNumber}
+                      </button>
                     </td>
                     <td className="px-4 py-3">{p.description}</td>
                     <td className="px-4 py-3">
@@ -369,7 +534,7 @@ function PartsPage() {
                     <td className="px-4 py-3">
                       <StatusPill {...statusMeta[p.status]} />
                     </td>
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => setDcrPart(p)}
                         className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-brand hover:bg-brand/5 hover:text-brand"
@@ -392,6 +557,34 @@ function PartsPage() {
             </tbody>
           </table>
         </div>
+        <div className="flex flex-col gap-3 border-t px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Showing {tablePage.totalRows === 0 ? 0 : (tablePage.page - 1) * PAGE_SIZE + 1}–
+            {Math.min(tablePage.page * PAGE_SIZE, tablePage.totalRows)} of {tablePage.totalRows}{" "}
+            matching parts · maximum {PAGE_SIZE} rendered rows
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page === 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <span className="font-mono">
+              Page {tablePage.page} of {pageCount}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page === pageCount}
+              onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       <PartDetailDialog
@@ -404,6 +597,44 @@ function PartsPage() {
       />
       <DcrDialog part={dcrPart} onClose={() => setDcrPart(null)} />
     </AppShell>
+  );
+}
+
+function SortableHead({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: PartSortKey;
+  activeKey: PartSortKey;
+  direction: SortDirection;
+  onSort: (key: PartSortKey) => void;
+  align?: "left" | "right";
+}) {
+  const activeDirection = activeKey === sortKey ? direction : "none";
+  const Icon =
+    activeDirection === "ascending"
+      ? ArrowUp
+      : activeDirection === "descending"
+        ? ArrowDown
+        : ArrowUpDown;
+  return (
+    <th
+      className={`px-4 py-3 font-medium ${align === "right" ? "text-right" : "text-left"}`}
+      aria-sort={activeDirection}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 hover:text-foreground ${align === "right" ? "justify-end" : "justify-start"}`}
+      >
+        {label} <Icon className="h-3 w-3" />
+      </button>
+    </th>
   );
 }
 
@@ -515,6 +746,43 @@ function PartDetailDialog({
                   value={`$${part.amortizedPerPiece.toFixed(2)}`}
                 />
               </section>
+
+              <Separator />
+
+              <section>
+                <div className="text-sm font-semibold">Projection and provenance</div>
+                <div className="mt-2 grid gap-3 text-xs sm:grid-cols-3">
+                  <Metric
+                    label="Actual recovery"
+                    value={formatMoney(part.recoveredToDate, { compact: true })}
+                  />
+                  <Metric
+                    label="Contract basis"
+                    value={formatMoney(part.totalAmortized, { compact: true })}
+                  />
+                  <Metric
+                    label="Forecast at EOP"
+                    value={formatMoney(part.forecastVolume * part.amortizedPerPiece, {
+                      compact: true,
+                    })}
+                  />
+                  <Metric
+                    label="Forecast variance"
+                    value={formatMoney(
+                      part.forecastVolume * part.amortizedPerPiece - part.totalAmortized,
+                      { compact: true },
+                    )}
+                  />
+                  <Metric label="Break-even" value={part.breakEvenDate.slice(0, 7)} />
+                  <Metric label="Calculation" value="Development policy v1" />
+                </div>
+                <div className="mt-3 rounded-lg border bg-secondary/30 p-3 text-xs text-muted-foreground">
+                  <strong className="text-foreground">Source provenance:</strong> synthetic staged
+                  shipments · approved-rate fixture v1 · deterministic calculation manifest ·
+                  agreement evidence must be reviewed in the canonical Contracts workspace. No live
+                  ERP or provider data is represented.
+                </div>
+              </section>
             </div>
 
             <DialogFooter>
@@ -523,7 +791,10 @@ function PartDetailDialog({
               </Button>
               <Button onClick={() => onOpenDcr(part)}>
                 <FileText className="mr-1.5 h-4 w-4" />
-                View DCR
+                Review DCR evidence
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/contracts">Open linked agreements</Link>
               </Button>
             </DialogFooter>
           </>

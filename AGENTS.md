@@ -17,3 +17,4 @@
 - Preserve provider-neutral, configurable enterprise behavior with tenant isolation, security, auditability, accounting integrity, and evidence controls; keep unsupported functionality disabled.
 - Do not activate credentials, paid services, production resources, or irreversible changes without explicit approval; never commit secrets, customer documents, licensed data, or credentials.
 - Maintain status, requirements traceability, milestones, and release-checklist evidence as work progresses, and validate with `pnpm check` plus relevant targeted tests before pushing.
+- Use exactly one outcome label from `docs/release-readiness.md` in every delivery handoff; never infer final acceptance or production readiness from an increment's tests.

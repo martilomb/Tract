@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { activateConfiguration, type VersionedConfiguration } from "@/domain/configuration";
 import {
   mapRestResponse,
+  validateConnectorAdministrator,
+  validateConnectorConfiguration,
   validateProviderAdapter,
   validateRestConnector,
   type RestConnectorConfiguration,
@@ -26,6 +28,65 @@ const connector: RestConnectorConfiguration = {
 };
 
 describe("connector and configuration boundaries", () => {
+  const administratorDraft = {
+    id: "connector-draft",
+    organizationId: "org-a",
+    name: "Staging ERP",
+    providerKey: "customer_erp",
+    systemType: "sap_erp" as const,
+    environment: "staging" as const,
+    domain: "erp" as const,
+    transports: ["odata"] as const,
+    endpoint: "https://erp.example.test/odata",
+    allowedHosts: ["erp.example.test"],
+    authenticationMethod: "oauth2" as const,
+    deltaBehavior: "Changed records since the approved delta token",
+    timeZone: "UTC",
+    sourceObjects: ["Shipments"],
+    dataCategories: ["shipment", "cost", "correction", "reversal", "return"] as const,
+    fieldMappings: [
+      {
+        source: "Material",
+        destination: "part_number",
+        required: true,
+        operation: "trim" as const,
+      },
+      {
+        source: "Quantity",
+        destination: "signed_quantity",
+        required: true,
+        operation: "decimal" as const,
+      },
+    ],
+    reconciliationRules: "Source quantity and value totals must match by posting period",
+    maximumRetries: 3,
+    owner: "Enterprise integration owner",
+  };
+
+  it("validates safe connector drafts while keeping live tests blocked without runtime inputs", () => {
+    const result = validateConnectorConfiguration(administratorDraft);
+    expect(result.configurationValid).toBe(true);
+    expect(result.liveTestAvailable).toBe(false);
+    expect(result.checks.at(-1)).toMatchObject({ state: "blocked" });
+  });
+
+  it("denies non-admin and cross-tenant connector administration", () => {
+    expect(() =>
+      validateConnectorAdministrator({
+        draftOrganizationId: "org-a",
+        activeOrganizationId: "org-a",
+        role: "full_view",
+      }),
+    ).toThrow(/administrators/);
+    expect(() =>
+      validateConnectorAdministrator({
+        draftOrganizationId: "org-b",
+        activeOrganizationId: "org-a",
+        role: "administrator",
+      }),
+    ).toThrow(/Cross-tenant/);
+  });
+
   it("maps allowlisted HTTPS responses without executable mapping expressions", () => {
     expect(validateRestConnector(connector)).toBe(connector);
     expect(mapRestResponse({ data: { events: [{ id: "one", quantity: 12 }] } }, connector)).toEqual(

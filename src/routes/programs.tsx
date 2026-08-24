@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { StatusPill } from "@/components/stat-card";
@@ -14,8 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, ChevronRight, ArrowLeft } from "lucide-react";
 import { OemMark } from "@/components/oem-badge";
-import { vehicleImage } from "@/lib/vehicle-images";
-import { NewProgramDialog } from "@/components/new-program-dialog";
+import { CreateProgramDialog } from "@/components/create-program-dialog";
 
 export const Route = createFileRoute("/programs")({
   component: ProgramsPage,
@@ -76,7 +75,7 @@ function ProgramsPage() {
         title="Vehicle Programs"
         description="Synthetic OEM, carline, and model-year fixtures for recovery workflow review."
         actions={
-          <NewProgramDialog
+          <CreateProgramDialog
             trigger={
               <Button size="sm">
                 <Plus className="mr-1.5 h-4 w-4" /> New program
@@ -105,9 +104,7 @@ function ProgramsPage() {
           {filtered.map((g) => {
             const pct = (g.recoveredToDate / g.totalAmortized) * 100;
             const fpct = (g.forecastRecovery / g.totalAmortized) * 100;
-            const previews = g.programs
-              .slice(0, 3)
-              .map((p) => ({ p, img: vehicleImage(p.id, p.name) }));
+            const previews = g.programs.slice(0, 3);
             return (
               <button
                 key={g.oem}
@@ -136,16 +133,18 @@ function ProgramsPage() {
                     <ChevronRight className="h-5 w-5 text-white/40 transition-transform group-hover:translate-x-0.5 group-hover:text-white/80" />
                   </div>
 
-                  <div className="relative mt-3 flex h-20 items-end justify-around gap-1">
+                  <div className="relative mt-4 grid grid-cols-3 gap-2 pb-2">
                     {previews.length ? (
-                      previews.map(({ p, img }) => (
-                        <img
+                      previews.map((p) => (
+                        <div
                           key={p.id}
-                          src={img!}
-                          alt={p.name}
-                          loading="lazy"
-                          className="max-h-full w-auto max-w-[32%] object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]"
-                        />
+                          className="rounded-md border border-white/10 bg-white/5 px-2 py-2 text-center"
+                        >
+                          <div className="truncate text-[10px] font-medium text-white/85">
+                            {p.name}
+                          </div>
+                          <div className="mt-1 font-mono text-[9px] text-white/50">{p.code}</div>
+                        </div>
                       ))
                     ) : (
                       <div className="text-[11px] text-white/40">{g.programs.length} programs</div>
@@ -239,7 +238,7 @@ function ProgramsPage() {
           <Button variant="outline" size="sm" onClick={() => setSelectedOem(null)}>
             <ArrowLeft className="mr-1.5 h-4 w-4" /> All OEMs
           </Button>
-          <NewProgramDialog
+          <CreateProgramDialog
             trigger={
               <Button size="sm">
                 <Plus className="mr-1.5 h-4 w-4" /> New program
@@ -320,13 +319,15 @@ function ProgramsPage() {
                   <StatusPill {...statusMeta[p.status]} />
                 </div>
 
-                <div className="relative mt-2 flex h-24 items-end justify-center">
-                  <img
-                    src={vehicleImage(p.id, p.name)}
-                    alt={`${p.name} silhouette`}
-                    loading="lazy"
-                    className="max-h-[110%] w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)] transition-transform duration-500 group-hover:scale-[1.04]"
-                  />
+                <div className="relative mt-4 grid grid-cols-2 gap-2 pb-2 text-[10px] text-white/70">
+                  <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2">
+                    <div className="uppercase tracking-wide text-white/45">Program</div>
+                    <div className="mt-1 font-mono font-semibold text-white/85">{p.code}</div>
+                  </div>
+                  <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2">
+                    <div className="uppercase tracking-wide text-white/45">Platform</div>
+                    <div className="mt-1 font-semibold text-white/85">{p.platform}</div>
+                  </div>
                 </div>
               </div>
 
@@ -392,6 +393,18 @@ function ProgramsPage() {
                   <div className="text-muted-foreground">
                     {p.partsCount} parts · SOP {p.sop.slice(0, 7)}
                   </div>
+                </div>
+                <div className="flex flex-wrap gap-3 border-t pt-3 text-xs">
+                  <Link to="/contracts" className="font-medium text-brand hover:underline">
+                    Linked recovery agreements
+                  </Link>
+                  <Link
+                    to="/forecasts"
+                    search={{ programId: p.id }}
+                    className="font-medium text-brand hover:underline"
+                  >
+                    Calculation and provenance
+                  </Link>
                 </div>
               </div>
             </div>

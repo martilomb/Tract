@@ -40,6 +40,8 @@ describe("static database migration contract", () => {
       "202608210001_foundation.sql",
       "202608210002_product.sql",
       "202608210003_ingestion_domains.sql",
+      "202608240001_milestone10_enterprise_workflows.sql",
+      "202608240002_milestone10_integrity_guards.sql",
     ]);
     for (const { file, sql } of migrations) {
       expect(sql.trimStart(), file).toMatch(/^begin;/);
@@ -78,6 +80,15 @@ describe("static database migration contract", () => {
     expect(combinedSql).toContain("ingestion_postings_immutable");
     expect(combinedSql).toContain("unique (organization_id, economic_event_key)");
     expect(combinedSql).toContain("only an approved same-tenant candidate may be posted");
+    expect(combinedSql).toContain("recovery activation requires an effective approved agreement");
+    expect(combinedSql).toContain("calculation requires an active recovery agreement");
+    expect(combinedSql).toContain("mapping operation is not an approved declarative operation");
+    expect(combinedSql).toContain("DCR transition requires document evidence");
+    expect(combinedSql).toContain("approved part revision terms are immutable");
+    expect(combinedSql).toContain("field mapping contains an unsupported key");
+    expect(combinedSql).toContain(
+      "connector endpoint host must be present in the exact host allowlist",
+    );
     expect(combinedSql).not.toMatch(/using\s*\(\s*true\s*\)/i);
     expect(combinedSql).not.toMatch(/with check\s*\(\s*true\s*\)/i);
   });

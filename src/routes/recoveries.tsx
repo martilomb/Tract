@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   Send,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Paperclip,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,10 @@ import { YearlyStatusRow } from "@/components/model-year-status";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { OemMark } from "@/components/oem-badge";
+import {
+  HierarchicalProgramSelector,
+  type HierarchySelection,
+} from "@/components/hierarchical-program-selector";
 
 export const Route = createFileRoute("/recoveries")({
   component: RecoveriesPage,
@@ -64,7 +70,25 @@ function buildReviewCandidates(programs: Program[]): OverRecoveryReviewRow[] {
 }
 
 function RecoveriesPage() {
-  const { programs } = useDataset();
+  const { programs: allPrograms } = useDataset();
+  const [hierarchy, setHierarchy] = useState<HierarchySelection>({
+    oem: "all",
+    programId: "all",
+    modelYear: "all",
+  });
+  const [programPage, setProgramPage] = useState(1);
+  const programs = useMemo(
+    () =>
+      allPrograms.filter(
+        (program) =>
+          (hierarchy.oem === "all" || program.oem === hierarchy.oem) &&
+          (hierarchy.programId === "all" || program.id === hierarchy.programId),
+      ),
+    [allPrograms, hierarchy.oem, hierarchy.programId],
+  );
+  const programPageCount = Math.max(1, Math.ceil(programs.length / 25));
+  const safeProgramPage = Math.min(programPage, programPageCount);
+  const visiblePrograms = programs.slice((safeProgramPage - 1) * 25, safeProgramPage * 25);
   const rows = programs.map((p) => ({
     name: p.name,
     delta: p.forecastRecovery - p.totalAmortized,
@@ -74,8 +98,13 @@ function RecoveriesPage() {
   const under = rows.filter((r) => r.delta < 0);
   const totalOver = over.reduce((s, r) => s + r.delta, 0);
   const totalUnder = under.reduce((s, r) => s + r.delta, 0);
+  const chartRows = visiblePrograms.map((p) => ({
+    name: p.name,
+    delta: p.forecastRecovery - p.totalAmortized,
+    status: p.status,
+  }));
 
-  const reviewCandidates = useMemo(() => buildReviewCandidates(programs), [programs]);
+  const reviewCandidates = useMemo(() => buildReviewCandidates(visiblePrograms), [visiblePrograms]);
   const [selected, setSelected] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(reviewCandidates.map((r) => [r.program.id, true])),
   );
@@ -101,25 +130,69 @@ function RecoveriesPage() {
 
   return (
     <AppShell
-      title="Recoveries & Claims"
-      description="Under-recoveries you can pursue from OEMs. Over-recoveries you must accrue."
+      title="Recovery Reviews"
+      description="Compare approved recovery terms with actuals and forecasts, then route variances for evidence-backed review."
       actions={
-        <Button size="sm" disabled title="Connect production data to generate claim packs">
-          <FileText className="mr-1.5 h-4 w-4" /> Generate claim pack
+        <Button
+          size="sm"
+          disabled
+          title="Claim workflow unavailable: approved eligibility rules, templates, and submission authority have not been provided"
+        >
+          <FileText className="mr-1.5 h-4 w-4" /> Claim workflow unavailable
         </Button>
       }
     >
+      <div className="mb-5 card-elevated p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          OEM → program / model → model year
+        </div>
+        <HierarchicalProgramSelector
+          programs={allPrograms}
+          value={hierarchy}
+          onChange={(selection) => {
+            setHierarchy(selection);
+            setProgramPage(1);
+          }}
+        />
+        <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Showing {programs.length === 0 ? 0 : (safeProgramPage - 1) * 25 + 1}–
+            {Math.min(safeProgramPage * 25, programs.length)} of {programs.length} matching programs
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={safeProgramPage === 1}
+              onClick={() => setProgramPage((current) => Math.max(1, current - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <span className="font-mono">
+              Page {safeProgramPage} of {programPageCount}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={safeProgramPage === programPageCount}
+              onClick={() => setProgramPage((current) => Math.min(programPageCount, current + 1))}
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
-          label="Recoverable from OEMs"
+          label="Projected under-recovery"
           value={formatMoney(Math.abs(totalUnder), { compact: true })}
           delta={14.2}
-          deltaLabel="new claims this quarter"
+          deltaLabel="requires contract review"
           icon={<TrendingDown className="h-5 w-5" />}
           accent="destructive"
         />
         <StatCard
-          label="Over-recovery to accrue"
+          label="Projected over-recovery"
           value={formatMoney(totalOver, { compact: true })}
           delta={6.8}
           deltaLabel="control review"
@@ -127,10 +200,10 @@ function RecoveriesPage() {
           accent="success"
         />
         <StatCard
-          label="Open claim value"
-          value={formatMoney(2_140_000, { compact: true })}
-          delta={22.4}
-          deltaLabel="3 claims filed"
+          label="Balances awaiting review"
+          value={formatMoney(totalOver + Math.abs(totalUnder), { compact: true })}
+          delta={0}
+          deltaLabel="no treatment inferred"
           icon={<DollarSign className="h-5 w-5" />}
           accent="brand"
         />
@@ -140,11 +213,12 @@ function RecoveriesPage() {
         <div className="card-elevated p-5 lg:col-span-3">
           <h2 className="text-base font-semibold">Forecast vs. contract by program</h2>
           <p className="text-xs text-muted-foreground">
-            Positive = over-recovery. Negative = OEM claim opportunity.
+            Positive = projected over-recovery. Negative = projected under-recovery. Neither assigns
+            a remedy or accounting treatment.
           </p>
           <div className="mt-4 h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={rows} layout="vertical" margin={{ left: 20, right: 20 }}>
+              <BarChart data={chartRows} layout="vertical" margin={{ left: 20, right: 20 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="oklch(0.9 0.01 250)"
@@ -161,7 +235,7 @@ function RecoveriesPage() {
                   formatter={(value) => formatMoney(Number(value ?? 0))}
                 />
                 <Bar dataKey="delta" radius={[0, 4, 4, 0]}>
-                  {rows.map((r, i) => (
+                  {chartRows.map((r, i) => (
                     <Cell
                       key={i}
                       fill={r.delta >= 0 ? "oklch(0.62 0.15 155)" : "oklch(0.6 0.22 27)"}
@@ -176,10 +250,10 @@ function RecoveriesPage() {
         <div className="card-elevated p-5 lg:col-span-2">
           <h2 className="text-base font-semibold">Under-recovery review queue</h2>
           <p className="text-xs text-muted-foreground">
-            Contract evidence and approval are required before any claim submission.
+            Contract evidence and approved business rules are required before any remedy workflow.
           </p>
           <div className="mt-4 space-y-3">
-            {under.map((r, i) => (
+            {under.slice(0, 10).map((r, i) => (
               <div key={i} className="rounded-lg border border-border p-3">
                 <div className="flex items-start justify-between">
                   <div>
@@ -191,11 +265,22 @@ function RecoveriesPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    disabled
+                    title="Persisted agreement and calculation evidence are required"
+                  >
                     View evidence
                   </Button>
-                  <Button size="sm" className="h-7 text-xs" disabled>
-                    Draft claim
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled
+                    title="Approved remedy rules and submission authority are required"
+                  >
+                    Remedy workflow unavailable
                   </Button>
                 </div>
               </div>
@@ -252,6 +337,7 @@ function RecoveriesPage() {
                     <tr key={r.program.id} className="hover:bg-secondary/30">
                       <td className="px-3 py-3 align-top">
                         <Checkbox
+                          aria-label={`Select ${r.program.name} for review`}
                           checked={!!selected[r.program.id]}
                           onCheckedChange={(v) =>
                             setSelected((prev) => ({
@@ -347,7 +433,7 @@ function RecoveriesPage() {
             <h2 className="text-base font-semibold">Recovery by model year</h2>
             <p className="text-xs text-muted-foreground">
               Historical demonstration buckets show recovered, under-recovered, and over-recovered
-              balances without inferring an accounting disposition.
+              balances without inferring an accounting treatment.
             </p>
           </div>
           <YearLegend />
@@ -364,7 +450,7 @@ function RecoveriesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {programs.map((p) => {
+              {visiblePrograms.map((p) => {
                 const ys = getYearlyStatus(p);
                 const y22 = ys.find((y) => y.year === 2022);
                 const mid = ys

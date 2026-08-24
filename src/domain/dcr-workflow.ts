@@ -17,6 +17,9 @@ export interface WorkflowTransition {
   to: DcrStatus;
   allowedRoles: readonly WorkflowRole[];
   requiresComment?: boolean;
+  requiredDocumentTypes?: readonly string[];
+  requiredAssignmentRoles?: readonly ("owner" | "reviewer" | "approver" | "observer")[];
+  requiredApprovalStages?: readonly string[];
 }
 
 export interface WorkflowDefinition {
@@ -43,6 +46,12 @@ export interface DcrState {
   history: readonly DcrHistoryEntry[];
 }
 
+export interface DcrTransitionEvidence {
+  documentTypes: readonly string[];
+  assignmentRoles: readonly ("owner" | "reviewer" | "approver" | "observer")[];
+  approvedStages: readonly string[];
+}
+
 export const defaultDcrWorkflow: WorkflowDefinition = Object.freeze({
   id: "tract-default-dcr",
   version: 1,
@@ -63,7 +72,14 @@ export const defaultDcrWorkflow: WorkflowDefinition = Object.freeze({
       requiresComment: true,
     },
     { from: "submitted", to: "cancelled", allowedRoles: ["administrator"], requiresComment: true },
-    { from: "under_review", to: "approved", allowedRoles: ["administrator", "approver"] },
+    {
+      from: "under_review",
+      to: "approved",
+      allowedRoles: ["administrator", "approver"],
+      requiredDocumentTypes: ["technical_evidence"],
+      requiredAssignmentRoles: ["reviewer", "approver"],
+      requiredApprovalStages: ["technical"],
+    },
     {
       from: "under_review",
       to: "rejected",
@@ -76,7 +92,13 @@ export const defaultDcrWorkflow: WorkflowDefinition = Object.freeze({
       allowedRoles: ["administrator"],
       requiresComment: true,
     },
-    { from: "approved", to: "active", allowedRoles: ["administrator", "approver"] },
+    {
+      from: "approved",
+      to: "active",
+      allowedRoles: ["administrator", "approver"],
+      requiredAssignmentRoles: ["approver"],
+      requiredApprovalStages: ["release"],
+    },
     { from: "approved", to: "cancelled", allowedRoles: ["administrator"], requiresComment: true },
     {
       from: "active",
@@ -126,6 +148,7 @@ export function transitionDcr(input: {
   occurredAt: string;
   comment?: string;
   workflow?: WorkflowDefinition;
+  evidence?: DcrTransitionEvidence;
 }): DcrState {
   const workflow = validateWorkflow(input.workflow ?? defaultDcrWorkflow);
   const transition = workflow.transitions.find(
@@ -145,6 +168,35 @@ export function transitionDcr(input: {
     "A comment is required for this transition",
     "comment_required",
   );
+  const evidence = input.evidence ?? {
+    documentTypes: [],
+    assignmentRoles: [],
+    approvedStages: [],
+  };
+  for (const documentType of transition.requiredDocumentTypes ?? []) {
+    invariant(
+      evidence.documentTypes.includes(documentType),
+      `Required DCR evidence is missing: ${documentType}`,
+      "dcr_evidence_required",
+      { documentType },
+    );
+  }
+  for (const role of transition.requiredAssignmentRoles ?? []) {
+    invariant(
+      evidence.assignmentRoles.includes(role),
+      `Required DCR assignment is missing: ${role}`,
+      "dcr_assignment_required",
+      { role },
+    );
+  }
+  for (const stage of transition.requiredApprovalStages ?? []) {
+    invariant(
+      evidence.approvedStages.includes(stage),
+      `Required DCR approval is missing: ${stage}`,
+      "dcr_approval_required",
+      { stage },
+    );
+  }
 
   const entry: DcrHistoryEntry = Object.freeze({
     from: input.dcr.status,

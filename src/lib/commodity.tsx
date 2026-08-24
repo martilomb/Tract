@@ -6,7 +6,7 @@ import {
   scenarioInsights as allInsights,
   overRecoveryBreakdown as allOverBreakdown,
   overRecoveryTimeline as allOverTimeline,
-  type Program,
+  type Part,
 } from "./demo-data";
 
 export const COMMODITIES = [
@@ -24,10 +24,15 @@ export const COMMODITIES = [
 
 export type Commodity = (typeof COMMODITIES)[number] | "all";
 
-// Deterministic assignment of commodities to base programs.
-export function programCommodity(p: Program): (typeof COMMODITIES)[number] {
-  const idx = allPrograms.findIndex((x) => x.id === p.id);
-  return COMMODITIES[(idx >= 0 ? idx : 0) % COMMODITIES.length];
+// Explicit synthetic part-to-commodity relationships for local demonstration data.
+// Programs inherit every commodity represented by their linked parts; a program is
+// never assigned one exclusive commodity.
+const PART_COMMODITY_RELATIONSHIPS = new Map(
+  allParts.map((part, index) => [part.id, COMMODITIES[index % COMMODITIES.length]] as const),
+);
+
+export function partCommodity(part: Part): (typeof COMMODITIES)[number] {
+  return PART_COMMODITY_RELATIONSHIPS.get(part.id) ?? COMMODITIES[0];
 }
 
 type Ctx = {
@@ -55,8 +60,8 @@ export function useCommodity() {
 /**
  * Returns commodity-filtered slices of the explicit demo dataset. When commodity is
  * "all", the full dataset is returned. When a specific commodity is selected,
- * programs are filtered by their assigned commodity, and downstream data
- * (parts, insights, OEM summary, over-recovery pool) is scoped accordingly.
+ * parts are filtered by their explicit relationship and a program is included
+ * when at least one linked part matches. Downstream summary data follows that set.
  */
 export function useDataset() {
   const { commodity } = useCommodity();
@@ -71,9 +76,9 @@ export function useDataset() {
         overRecoveryTimeline: allOverTimeline,
       };
     }
-    const programs = allPrograms.filter((p) => programCommodity(p) === commodity);
-    const ids = new Set(programs.map((p) => p.id));
-    const parts = allParts.filter((p) => ids.has(p.programId));
+    const parts = allParts.filter((part) => partCommodity(part) === commodity);
+    const ids = new Set(parts.map((part) => part.programId));
+    const programs = allPrograms.filter((program) => ids.has(program.id));
     const oemsSet = new Set(programs.map((p) => p.oem));
     const oemSummary = allOemSummary.filter((o) => oemsSet.has(o.oem));
     const scenarioInsights = allInsights.filter((i) => ids.has(i.programId));

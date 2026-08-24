@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   CheckCircle2,
   CircleAlert,
+  Cable,
   Database,
   FileClock,
   LockKeyhole,
@@ -34,10 +35,17 @@ const controls = [
     state: "implemented",
   },
   {
-    title: "Production data",
-    detail: "Supabase project and credentials have not been supplied",
+    title: "Staging database",
+    detail: "Non-production project linked; migrations, RLS, lint, and generated types verified",
     icon: Database,
-    state: "connection required",
+    state: "staging verified",
+  },
+  {
+    title: "Data connections",
+    detail:
+      "Provider-neutral file/API wizard and declarative mapping boundary; live providers disabled",
+    icon: Cable,
+    state: "configuration available",
   },
 ] as const;
 
@@ -50,7 +58,7 @@ function SettingsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {controls.map((control) => {
           const Icon = control.icon;
-          const ready = control.state === "implemented";
+          const ready = control.state === "implemented" || control.state === "staging verified";
           return (
             <Card key={control.title}>
               <CardHeader className="flex flex-row items-start gap-3 space-y-0">
@@ -89,8 +97,8 @@ function SettingsPage() {
           <div className="flex items-start gap-2">
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <span>
-              Apply migrations and RLS tests to an approved Supabase environment before turning off
-              demo mode.
+              Staging migrations and database tests pass. Hosted Auth identities, private document
+              providers, and customer data remain intentionally absent, so demo mode stays on.
             </span>
           </div>
           <div className="flex items-start gap-2">

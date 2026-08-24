@@ -20,7 +20,8 @@ The canonical business rules live in `src/domain`. Database constraints and RLS 
 - Original source objects and raw ingestion records are immutable. Mapping creates separate versioned candidates; only reviewed and approved candidates can post.
 - Money, rates, volume, and derived results use decimal strings in TypeScript and Postgres `numeric`; floating-point arithmetic is not accepted in accounting code.
 - Policy and workflow changes are versioned and effective-dated. Existing calculation runs retain the exact configuration and source-event references used.
-- Over-recovery remains visible but has no automatic accounting disposition.
+- Over-recovery remains visible but has no automatic accounting treatment.
+- Programs, model years, parts/revisions, DCRs, and recovery agreements are independent canonical records joined by tenant-bound relationships. Recovery activation and calculation require an effective approved agreement.
 - Vehicle-production, ERP, and document sources remain independent. Related values reconcile; no source overwrites another and one economic event cannot post twice.
 
 ## Ingestion boundary
@@ -43,9 +44,10 @@ Raw records, normalized candidates, exceptions, approvals, and postings are sepa
 ## Data modules
 
 - Identity: organizations, memberships, roles, additive permission grants.
-- Master data: departments, technical teams, OEMs, suppliers, contacts, programs, vehicle models, plants, regions, parts, effective part-per-vehicle/take-rate/allocation rules.
-- DCR: versioned workflow, assignments, comments, part links, attachments, transition history, notifications.
-- Recovery: accruals, effective-dated rates, immutable volume events, calculation runs, lines, results.
+- Master data: departments, technical teams, OEMs, suppliers, contacts, programs/model years, parts/revisions, many-to-many applications and commodities, plants, regions, and effective part-per-vehicle/take-rate/allocation rules.
+- DCR: versioned evidence-gated workflow, assignments, comments, program/model-year/part links, attachments, agreement links, transition history, notifications.
+- Recovery agreements: private originals/versions, linked programs/model years/parts/DCRs, eligible-volume basis, effective rates, approval, activation, expiry, supersession, and audit history.
+- Recovery: agreement-bound accruals, effective-dated rates, immutable volume events, calculation runs, lines, results.
 - Forecasts: provider-neutral versions, lines, provenance, actual-versus-scenario projection.
 - Ingestion: provider-neutral adapters, stored original objects, immutable raw records, versioned candidates, exceptions, reconciliation, approvals, economic-event posting registry.
 - Vehicle volume: IHS/AFS-neutral actual/forecast/revised/scenario records, dimensional mappings, immutable forecast versions, relevant part links.
@@ -57,4 +59,4 @@ Recovery replay canonicalizes event/rate ordering and hashes the complete terms,
 
 ## Demo boundary
 
-The visually labelled local demo imports `src/lib/demo-data.ts`. Production builds fail closed unless demo mode is explicitly enabled; the synthetic routes are not presented as persisted records or live integrations. Connecting the real repository requires an approved Supabase project, applied migrations, passing RLS tests, generated database types, and an authenticated request context.
+The visually labelled local demo imports `src/lib/demo-data.ts`. Production builds fail closed unless demo mode is explicitly enabled; the synthetic routes are not presented as persisted records or live integrations. The approved non-production staging project has the migration ledger, RLS tests, and generated types, but leaving demo mode still requires approved hosted Auth identities, environment configuration, and permission-aware browser validation.

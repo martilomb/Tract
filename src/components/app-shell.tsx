@@ -14,6 +14,8 @@ import {
   Database,
   ClipboardCheck,
   Cable,
+  FileSignature,
+  PlugZap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import logo from "@/assets/tract-logo-dark.png";
@@ -28,26 +30,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Cpu } from "lucide-react";
-import { COMMODITIES, useCommodity, type Commodity } from "@/lib/commodity";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const nav = [
   { to: "/", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/programs", label: "Programs", icon: Layers },
   { to: "/parts", label: "Part Numbers", icon: Package },
-  { to: "/dcrs", label: "DCR Workflow", icon: ClipboardCheck },
+  { to: "/dcrs", label: "DCRs", icon: ClipboardCheck },
+  { to: "/contracts", label: "Contracts", icon: FileSignature },
   { to: "/recoveries", label: "Recoveries", icon: TrendingUp },
   { to: "/forecasts", label: "Forecasts", icon: Sparkles },
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/operations", label: "Operations", icon: Cable },
+  { to: "/connections", label: "Data Connections", icon: PlugZap },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -79,7 +74,6 @@ export function AppShell({
   actions?: ReactNode;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { commodity, setCommodity } = useCommodity();
 
   return (
     <div className="min-h-screen bg-background">
@@ -186,26 +180,14 @@ export function AppShell({
             />
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <div className="hidden items-center gap-2 md:flex">
-              <div className="flex items-center gap-1.5 rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                <Cpu className="h-3.5 w-3.5 text-brand" />
-                Commodity
-              </div>
-              <Select value={commodity} onValueChange={(v) => setCommodity(v as Commodity)}>
-                <SelectTrigger className="h-9 w-[240px] text-sm">
-                  <SelectValue placeholder="All commodities" />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  <SelectItem value="all">All commodities</SelectItem>
-                  {COMMODITIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label="Notifications unavailable in demonstration mode"
+              disabled
+              title="Notification delivery requires an approved provider and authenticated user"
+            >
               <Bell className="h-4 w-4" />
               <span
                 className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive"
@@ -228,11 +210,19 @@ export function AppShell({
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>My account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Organization</DropdownMenuItem>
-                <DropdownMenuItem>API keys</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/organization">Organization</Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled
+                  title="No authenticated session exists in demonstration mode"
+                >
+                  Sign out unavailable in demo
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

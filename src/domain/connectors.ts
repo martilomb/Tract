@@ -1,6 +1,246 @@
 import { invariant } from "./errors";
 import type { IngestionDomain, IngestionTransport } from "./ingestion";
 
+export type ConnectorEnvironment = "development" | "staging" | "production";
+export type ConnectorAuthenticationMethod =
+  "none" | "basic" | "api_key" | "oauth2" | "client_certificate" | "managed_identity";
+export type ConnectorDataCategory =
+  | "shipment"
+  | "purchase_order"
+  | "invoice"
+  | "material_document"
+  | "cost"
+  | "correction"
+  | "reversal"
+  | "return";
+export type MappingOperation =
+  "copy" | "trim" | "uppercase" | "lowercase" | "date_iso" | "decimal" | "integer" | "constant";
+
+export interface ConnectorFieldMapping {
+  source: string;
+  destination: string;
+  required: boolean;
+  operation: MappingOperation;
+  constantValue?: string;
+}
+
+export interface ConnectorDraft {
+  id: string;
+  organizationId: string;
+  name: string;
+  providerKey: string;
+  systemType: "file" | "api" | "sap_erp" | "volume_provider";
+  environment: ConnectorEnvironment;
+  domain: IngestionDomain;
+  transports: readonly IngestionTransport[];
+  endpoint?: string;
+  allowedHosts: readonly string[];
+  authenticationMethod: ConnectorAuthenticationMethod;
+  credentialReference?: string;
+  schedule?: string;
+  deltaBehavior: string;
+  timeZone: string;
+  sourceObjects: readonly string[];
+  dataCategories: readonly ConnectorDataCategory[];
+  fieldMappings: readonly ConnectorFieldMapping[];
+  reconciliationRules: string;
+  maximumRetries: number;
+  owner: string;
+  documentationReference?: string;
+  sampleReference?: string;
+  licenseReference?: string;
+}
+
+export interface ConnectorValidationResult {
+  configurationValid: boolean;
+  liveTestAvailable: boolean;
+  summary: string;
+  checks: readonly { label: string; state: "passed" | "blocked"; detail: string }[];
+}
+
+const APPROVED_OPERATIONS = new Set<MappingOperation>([
+  "copy",
+  "trim",
+  "uppercase",
+  "lowercase",
+  "date_iso",
+  "decimal",
+  "integer",
+  "constant",
+]);
+
+export function validateConnectorAdministrator(input: {
+  draftOrganizationId: string;
+  activeOrganizationId: string;
+  role: "administrator" | "full_view" | "member";
+}): void {
+  invariant(
+    input.draftOrganizationId === input.activeOrganizationId,
+    "Cross-tenant connector administration is denied",
+    "connector_cross_tenant_denied",
+  );
+  invariant(
+    input.role === "administrator",
+    "Only organization administrators can manage data connections",
+    "connector_admin_required",
+  );
+}
+
+export function validateConnectorFieldMappings(
+  mappings: readonly ConnectorFieldMapping[],
+): readonly ConnectorFieldMapping[] {
+  invariant(
+    mappings.length > 0,
+    "At least one field mapping is required",
+    "connector_mapping_required",
+  );
+  const destinations = new Set<string>();
+  for (const mapping of mappings) {
+    invariant(
+      mapping.source.trim() !== "",
+      "Mapping source is required",
+      "connector_mapping_invalid",
+    );
+    invariant(
+      /^[a-z][a-z0-9_]*$/.test(mapping.destination),
+      "Canonical destination must use a supported field name",
+      "connector_mapping_invalid",
+    );
+    invariant(
+      APPROVED_OPERATIONS.has(mapping.operation),
+      "Mapping operation is not an approved declarative operation",
+      "connector_mapping_operation_denied",
+    );
+    invariant(
+      !destinations.has(mapping.destination),
+      "Each canonical destination may be mapped only once",
+      "connector_mapping_duplicate",
+    );
+    invariant(
+      mapping.operation !== "constant" || Boolean(mapping.constantValue?.trim()),
+      "Constant mappings require a value",
+      "connector_mapping_invalid",
+    );
+    destinations.add(mapping.destination);
+  }
+  return mappings;
+}
+
+export function validateConnectorDraft(draft: ConnectorDraft): ConnectorDraft {
+  invariant(
+    draft.organizationId.trim() !== "",
+    "Organization is required",
+    "connector_org_required",
+  );
+  invariant(draft.name.trim() !== "", "Connection name is required", "connector_name_required");
+  invariant(
+    /^[a-z0-9][a-z0-9_-]*$/.test(draft.providerKey),
+    "Provider key is invalid",
+    "invalid_provider_key",
+  );
+  invariant(
+    draft.transports.length > 0,
+    "Select at least one transport",
+    "connector_transport_required",
+  );
+  invariant(draft.timeZone.trim() !== "", "Time zone is required", "connector_timezone_required");
+  invariant(draft.owner.trim() !== "", "Responsible owner is required", "connector_owner_required");
+  invariant(
+    Number.isInteger(draft.maximumRetries) &&
+      draft.maximumRetries >= 0 &&
+      draft.maximumRetries <= 5,
+    "Retry attempts must be an integer from 0 to 5",
+    "invalid_connector_retries",
+  );
+  if (draft.systemType === "api" || draft.systemType === "sap_erp") {
+    invariant(
+      Boolean(draft.endpoint),
+      "API and SAP/ERP connections require an HTTPS endpoint",
+      "connector_endpoint_required",
+    );
+    const url = new URL(draft.endpoint!);
+    invariant(url.protocol === "https:", "Connections require HTTPS", "insecure_connector");
+    invariant(
+      url.username === "" && url.password === "" && url.hash === "",
+      "Endpoint cannot contain credentials or fragments",
+      "invalid_connector_endpoint",
+    );
+    invariant(
+      draft.allowedHosts.includes(url.hostname),
+      "Endpoint host is not allowlisted",
+      "connector_host_denied",
+    );
+  }
+  if (draft.credentialReference) {
+    invariant(
+      /^[a-z][a-z0-9+.-]*:\/\//.test(draft.credentialReference),
+      "Credentials must be represented by an opaque secret-store reference",
+      "invalid_credential_reference",
+    );
+  }
+  if (draft.systemType === "sap_erp") {
+    invariant(
+      draft.dataCategories.length > 0,
+      "Select at least one SAP/ERP data category",
+      "connector_data_category_required",
+    );
+  }
+  invariant(
+    draft.sourceObjects.length > 0,
+    "At least one source object is required",
+    "connector_source_required",
+  );
+  validateConnectorFieldMappings(draft.fieldMappings);
+  return draft;
+}
+
+export function validateConnectorConfiguration(draft: ConnectorDraft): ConnectorValidationResult {
+  validateConnectorDraft(draft);
+  const apiTransport = draft.transports.some(
+    (transport) => transport === "rest" || transport === "odata",
+  );
+  const missingCredential =
+    apiTransport && draft.authenticationMethod !== "none" && !draft.credentialReference;
+  const missingSpecification = apiTransport && !draft.documentationReference;
+  const liveTestAvailable = !missingCredential && !missingSpecification;
+  const checks: ConnectorValidationResult["checks"] = [
+    {
+      label: "Tenant and owner",
+      state: "passed",
+      detail: `${draft.organizationId} · ${draft.owner}`,
+    },
+    {
+      label: "Transport boundary",
+      state: "passed",
+      detail: apiTransport
+        ? "HTTPS endpoint and host allowlist are valid"
+        : "File validation path is available",
+    },
+    {
+      label: "Declarative mapping",
+      state: "passed",
+      detail: `${draft.fieldMappings.length} field mappings use approved operations only`,
+    },
+    {
+      label: "Live connection test",
+      state: liveTestAvailable ? "passed" : "blocked",
+      detail: missingCredential
+        ? "Blocked: add an opaque runtime secret reference; never paste a credential here"
+        : missingSpecification
+          ? "Blocked: attach the approved provider/interface specification"
+          : "Configuration is eligible for a bounded server-side test",
+    },
+  ];
+  return Object.freeze({
+    configurationValid: true,
+    liveTestAvailable,
+    summary: liveTestAvailable
+      ? "Configuration validation passed; a bounded server-side test may be requested"
+      : "Safe configuration validation passed; live testing remains fail-closed",
+    checks: Object.freeze(checks),
+  });
+}
+
 export interface ProviderAdapterContract {
   readonly providerKey: string;
   readonly domain: IngestionDomain;

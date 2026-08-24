@@ -14,7 +14,9 @@ RLS helper functions are `security definer`, live outside the exposed schemas, p
 - A server operation may issue a short-lived signed URL only after an organization/scope check.
 - Document versions record size, MIME type, path, SHA-256, actor, and timestamp.
 - Original ingestion objects are private and tenant-prefixed. Raw records, posted vehicle/ERP records, document-term postings, and economic-event postings are immutable.
+- Approved and superseded part-revision terms are immutable. Approved agreement terms and linked scope are protected; activation and recovery posting require approval evidence.
 - Connector activation stores opaque credential references only. IHS/AFS approval additionally requires documentation, samples, and a license reference.
+- Connector administration and mapping versions are organization-administrator only. Staging pgTAP proves non-admin reads and cross-tenant writes are denied. Persisted endpoints must match their exact hostname allowlist, and mapping objects accept only approved declarative fields and operations.
 - Mapped candidates cannot post until review and approval; organization-scoped economic-event uniqueness prevents a second source from posting the same event.
 - A 25 MiB default limit and PDF/PNG/JPEG allowlist are enforced before scanning. Extraction can run only after a configured scanner returns a clean result with provider/version/time provenance and the extraction hash matches the scanned document. The production scanner and extractor still require approval.
 

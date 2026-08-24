@@ -26,6 +26,11 @@ describe("DCR workflow", () => {
       actorId: "u3",
       actorRoles: ["approver"],
       occurredAt: "2026-08-21T12:00:00Z",
+      evidence: {
+        documentTypes: ["technical_evidence"],
+        assignmentRoles: ["reviewer", "approver"],
+        approvedStages: ["technical"],
+      },
     });
     expect(approved.status).toBe("approved");
     expect(approved.history.map((entry) => `${entry.from}:${entry.to}`)).toEqual([
@@ -64,5 +69,22 @@ describe("DCR workflow", () => {
         occurredAt: "2026-08-21T10:00:00Z",
       }),
     ).toThrow(/not allowed/);
+  });
+
+  it("enforces configured evidence, assignment, and approval gates", () => {
+    expect(() =>
+      transitionDcr({
+        dcr: { ...draft, status: "under_review" },
+        to: "approved",
+        actorId: "u3",
+        actorRoles: ["approver"],
+        occurredAt: "2026-08-21T12:00:00Z",
+        evidence: {
+          documentTypes: ["technical_evidence"],
+          assignmentRoles: ["reviewer"],
+          approvedStages: ["technical"],
+        },
+      }),
+    ).toThrow(/approver/);
   });
 });

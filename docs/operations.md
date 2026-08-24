@@ -8,6 +8,14 @@ Alert on sustained 5xx rate, repeated authorization denial spikes, failed calcul
 
 REST connectors and notification delivery use server-only adapters. Connector results exclude credential material; notification destinations are resolved at delivery and excluded from receipts. Alert on final retry exhaustion and retain only sanitized failure codes in ordinary logs. Provider-specific dashboards and delivery routes remain activation inputs.
 
+## Data Connections administration
+
+Operations links to the plain-language Data Connections workspace. Organization administrators can start with **Add connection**, **Import file**, **Review imports**, **Resolve errors**, **Map fields**, or **Test connection**. The guided draft retains provider-neutral configuration and a replaceable SAP/ERP boundary; it never embeds provider-specific accounting logic.
+
+The connection register exposes configuration state, health, last/next run, imported/rejected counts, retry count, reconciliation variance, mapping version, owner, and audit history. Every Received → Staged → Validated → Mapped → Reviewed → Approved → Posted stage is selectable and explains what is waiting, failed, changed, approved, or posted. Missing provider specifications or credentials block live tests with a specific reason while synthetic mapping and reconciliation validation remains available.
+
+Credentials remain server-side and runtime-only. Persist only opaque references, mask them in the interface, and exclude secrets, raw customer rows, and provider error bodies from logs. Do not enable a connector until tenant-admin permission, exact endpoint allowlisting, mapping/sample approval, idempotency, reconciliation, and provider activation evidence pass.
+
 ## Backup and recovery
 
 Before production activation:

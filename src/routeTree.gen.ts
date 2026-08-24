@@ -10,10 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConnectionsRouteImport } from './routes/connections'
+import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as DcrsRouteImport } from './routes/dcrs'
 import { Route as ForecastsRouteImport } from './routes/forecasts'
 import { Route as OperationsRouteImport } from './routes/operations'
+import { Route as OrganizationRouteImport } from './routes/organization'
 import { Route as PartsRouteImport } from './routes/parts'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProgramsRouteImport } from './routes/programs'
 import { Route as RecoveriesRouteImport } from './routes/recoveries'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -23,6 +27,16 @@ import { Route as ApiHealthRouteImport } from './routes/api.health'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectionsRoute = ConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractsRoute = ContractsRouteImport.update({
+  id: '/contracts',
+  path: '/contracts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DcrsRoute = DcrsRouteImport.update({
@@ -40,9 +54,19 @@ const OperationsRoute = OperationsRouteImport.update({
   path: '/operations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrganizationRoute = OrganizationRouteImport.update({
+  id: '/organization',
+  path: '/organization',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartsRoute = PartsRouteImport.update({
   id: '/parts',
   path: '/parts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProgramsRoute = ProgramsRouteImport.update({
@@ -73,10 +97,14 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/connections': typeof ConnectionsRoute
+  '/contracts': typeof ContractsRoute
   '/dcrs': typeof DcrsRoute
   '/forecasts': typeof ForecastsRoute
   '/operations': typeof OperationsRoute
+  '/organization': typeof OrganizationRoute
   '/parts': typeof PartsRoute
+  '/profile': typeof ProfileRoute
   '/programs': typeof ProgramsRoute
   '/recoveries': typeof RecoveriesRoute
   '/reports': typeof ReportsRoute
@@ -85,10 +113,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/connections': typeof ConnectionsRoute
+  '/contracts': typeof ContractsRoute
   '/dcrs': typeof DcrsRoute
   '/forecasts': typeof ForecastsRoute
   '/operations': typeof OperationsRoute
+  '/organization': typeof OrganizationRoute
   '/parts': typeof PartsRoute
+  '/profile': typeof ProfileRoute
   '/programs': typeof ProgramsRoute
   '/recoveries': typeof RecoveriesRoute
   '/reports': typeof ReportsRoute
@@ -98,10 +130,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/connections': typeof ConnectionsRoute
+  '/contracts': typeof ContractsRoute
   '/dcrs': typeof DcrsRoute
   '/forecasts': typeof ForecastsRoute
   '/operations': typeof OperationsRoute
+  '/organization': typeof OrganizationRoute
   '/parts': typeof PartsRoute
+  '/profile': typeof ProfileRoute
   '/programs': typeof ProgramsRoute
   '/recoveries': typeof RecoveriesRoute
   '/reports': typeof ReportsRoute
@@ -112,10 +148,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/connections'
+    | '/contracts'
     | '/dcrs'
     | '/forecasts'
     | '/operations'
+    | '/organization'
     | '/parts'
+    | '/profile'
     | '/programs'
     | '/recoveries'
     | '/reports'
@@ -124,10 +164,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/connections'
+    | '/contracts'
     | '/dcrs'
     | '/forecasts'
     | '/operations'
+    | '/organization'
     | '/parts'
+    | '/profile'
     | '/programs'
     | '/recoveries'
     | '/reports'
@@ -136,10 +180,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/connections'
+    | '/contracts'
     | '/dcrs'
     | '/forecasts'
     | '/operations'
+    | '/organization'
     | '/parts'
+    | '/profile'
     | '/programs'
     | '/recoveries'
     | '/reports'
@@ -149,10 +197,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConnectionsRoute: typeof ConnectionsRoute
+  ContractsRoute: typeof ContractsRoute
   DcrsRoute: typeof DcrsRoute
   ForecastsRoute: typeof ForecastsRoute
   OperationsRoute: typeof OperationsRoute
+  OrganizationRoute: typeof OrganizationRoute
   PartsRoute: typeof PartsRoute
+  ProfileRoute: typeof ProfileRoute
   ProgramsRoute: typeof ProgramsRoute
   RecoveriesRoute: typeof RecoveriesRoute
   ReportsRoute: typeof ReportsRoute
@@ -167,6 +219,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connections': {
+      id: '/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof ConnectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contracts': {
+      id: '/contracts'
+      path: '/contracts'
+      fullPath: '/contracts'
+      preLoaderRoute: typeof ContractsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dcrs': {
@@ -190,11 +256,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/organization': {
+      id: '/organization'
+      path: '/organization'
+      fullPath: '/organization'
+      preLoaderRoute: typeof OrganizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parts': {
       id: '/parts'
       path: '/parts'
       fullPath: '/parts'
       preLoaderRoute: typeof PartsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/programs': {
@@ -237,10 +317,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConnectionsRoute: ConnectionsRoute,
+  ContractsRoute: ContractsRoute,
   DcrsRoute: DcrsRoute,
   ForecastsRoute: ForecastsRoute,
   OperationsRoute: OperationsRoute,
+  OrganizationRoute: OrganizationRoute,
   PartsRoute: PartsRoute,
+  ProfileRoute: ProfileRoute,
   ProgramsRoute: ProgramsRoute,
   RecoveriesRoute: RecoveriesRoute,
   ReportsRoute: ReportsRoute,

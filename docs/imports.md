@@ -10,6 +10,8 @@ Tract has three primary ingestion domains:
 
 Development uses staged CSV/Excel, deterministic document fields, and manual review. The connector registry keeps IHS, AFS, and SAP disabled until their provider-specific activation evidence is supplied.
 
+The Data Connections workspace gives an enterprise IT administrator a guided, provider-neutral configuration path without editing source code. A draft records tenant, provider/system type, environment, transport, HTTPS endpoint and exact host allowlist, authentication method, opaque secret reference, schedule/delta behavior/time zone, source objects, mappings, units/currencies, reconciliation and retry rules, and an accountable owner. SAP/ERP drafts explicitly select shipments, available costs, corrections, reversals, and returns; those source classifications never infer recoverability.
+
 ## Shared lifecycle
 
 `Received → Staged → Validated → Mapped → Reviewed → Approved → Posted`
@@ -48,7 +50,9 @@ The common SAP/ERP adapter supports REST, OData, and approved file drops, plus m
 - Scheduled and manual runs share the same validation, idempotency, reconciliation, history, and monitoring.
 - Redirects are never followed by the runtime adapter. Transient network, 408, 429, and 5xx failures are the only retryable responses.
 - No configuration may contain scripts, expressions, SQL, evaluated templates, arbitrary headers, or customer-supplied executable code.
+- Field mapping is no-code and versioned: source preview, canonical destination, required fields, approved copy/trim/case/date/decimal/integer/constant operations, sample validation, and reconciliation preview. Unknown mapping keys fail closed.
+- Configuration testing may validate a safe synthetic sample without credentials. A live test remains unavailable with an exact reason until both the approved interface specification and runtime secret reference exist; no live SAP or licensed-volume behavior is claimed.
 
 Partial file commits retain every rejected row and require explicit permission. Failed imports alone can retry, non-terminal runs can be cancelled only with permission and a reason, and count reconciliation compares source, duplicate, candidate, exception, and posting totals before approval.
 
-Domain rules live in `src/domain/ingestion.ts`, file staging in `src/domain/imports.ts`, provider contracts in `src/domain/connectors.ts`, the runtime adapter in `src/server/connector-runtime.server.ts`, and the canonical schema in `supabase/migrations/202608210003_ingestion_domains.sql`.
+Domain rules live in `src/domain/ingestion.ts`, file staging in `src/domain/imports.ts`, provider contracts in `src/domain/connectors.ts`, the runtime adapter in `src/server/connector-runtime.server.ts`, and the canonical schema in migrations `202608210003`, `202608240001`, and `202608240002`.

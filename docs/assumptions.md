@@ -17,6 +17,7 @@
 - The default DCR lifecycle is Draft → Submitted → Under Review → Approved → Active → Closed, with Rejected and Cancelled terminal paths.
 - IHS, AFS, or both are confirmed vehicle-volume source options behind one neutral file/API adapter. Development uses staged CSV/Excel until provider documentation, licensing, samples, and credentials are supplied.
 - SAP and other ERPs are confirmed operational-source options behind customer-specific declarative mappings. Original values are preserved and recoverability is never inferred.
+- Enterprise connector drafts can be created and configuration/synthetic samples can be validated without credentials. A live test remains blocked unless an approved interface specification and opaque runtime secret reference are available; persisted configuration never contains the credential value.
 - Contract/DCR extraction is evidence-backed and human-approved. Development uses a deterministic empty-field extractor and manual review.
 - Configuration is versioned, effective-dated, permission-controlled, declarative, and auditable.
 
