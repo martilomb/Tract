@@ -4,8 +4,8 @@
 - [x] Local `pnpm install --frozen-lockfile` and `pnpm check` pass.
 - [x] Dependency review has no known production vulnerabilities.
 - [x] Static migration contract tests pass for ordering, transactions, RLS coverage, security-definer search paths, critical immutable/posting guards, and credential-shaped text.
-- [ ] Supabase migrations apply cleanly to a fresh local database.
-- [ ] `supabase db lint` and `supabase test db` pass, including anonymous and cross-tenant denial.
+- [x] GitHub Actions applies all three Supabase migrations cleanly to a fresh database.
+- [x] Hosted `supabase db lint` and `supabase test db` pass, including ingestion, role-elevation, scoped-access, and cross-tenant denial checks.
 - [ ] Generated database types are committed and server queries use them.
 - [ ] Authentication, invitation, password reset, MFA policy, session expiry, and multi-organization switching pass browser tests.
 - [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass.

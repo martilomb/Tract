@@ -37,7 +37,7 @@ All useful Milestone 1–9 production work is complete. The approved GitHub repo
 - Live local health response verified fail-closed `503` behavior plus no-store, CSP, frame denial, opener isolation, and malformed request-id replacement. Bundle inspection verified the hardened entry is present in `dist/server/index.js`.
 - Static migration tests pass for order, transaction wrapping, RLS coverage, security-definer `search_path`, critical immutability/posting guards, and credential-shaped text. Cloudflare Worker production build passes without connecting an account.
 - Repository scan found no committed secret material or unresolved source TODO/FIXME markers; retained references to the original prototype are limited to durable provenance/safeguard documentation.
-- GitHub Actions successfully created a local Supabase stack, applied all three migrations, passed database lint, and passed the ingestion pgTAP suite. Its first RLS run exposed an incorrect test expectation: PostgreSQL denied a member's role update by matching zero rows rather than raising an exception. The regression now verifies that the role remains unchanged; the hosted rerun is pending.
+- GitHub Actions successfully created a fresh Supabase stack, applied all three migrations, passed database lint, and passed both pgTAP suites. Its first RLS run exposed an incorrect test expectation: PostgreSQL denied a member's role update by matching zero rows rather than raising an exception. The corrected regression verifies that the role remains unchanged, and both hosted CI jobs pass at commit `27929e4`.
 
 ## Genuine activation blockers
 
@@ -49,4 +49,4 @@ All useful Milestone 1–9 production work is complete. The approved GitHub repo
 
 ## Exact next step
 
-Complete the hosted CI rerun, then link the approved Supabase staging project, generate project database types, and execute hosted RLS/Auth/Storage/restore checks before staging deployment. Activate IHS/AFS, SAP, scanning/extraction, email, SSO, or other providers independently only after the corresponding specifications, samples, licensing/security approval, credentials, and reconciliation evidence in [docs/external-activation.md](../docs/external-activation.md) are complete.
+Link the approved Supabase staging project, generate project database types, and execute hosted Auth/Storage/restore checks before staging deployment. Activate IHS/AFS, SAP, scanning/extraction, email, SSO, or other providers independently only after the corresponding specifications, samples, licensing/security approval, credentials, and reconciliation evidence in [docs/external-activation.md](../docs/external-activation.md) are complete.
