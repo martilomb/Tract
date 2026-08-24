@@ -1,6 +1,6 @@
 # External activation inputs
 
-All useful local implementation is complete without accounts, credentials, paid services, Docker, PostgreSQL, or the Supabase CLI. The items below are the consolidated inputs needed to validate and activate hosted behavior. Secrets should be placed in the approved secret store or CI environment, not committed or pasted into source files.
+All useful local implementation is complete without paid services, Docker, PostgreSQL, or the Supabase CLI. The items below are the consolidated inputs needed to validate and activate hosted behavior. Secrets should be placed in the approved secret store or CI environment, not committed or pasted into source files.
 
 ## 1. GitHub repository connection
 
@@ -16,6 +16,8 @@ Activation status: the approved remote `https://github.com/martilomb/Tract.git` 
 
 ## 2. Supabase staging and database validation
 
+Activation status: the project-scoped Supabase MCP server is registered in Codex for `qflwjgmrspmcyghzinwz` and its OAuth login completed on 24 August 2026. The task in which it was added cannot acquire new tools after startup, so no project metadata, migration state, database types, Auth configuration, Storage behavior, or staging records have yet been read or changed. Start a fresh Codex task in this repository to load the authenticated Supabase tools; do not re-add the server or paste credentials.
+
 Provide or approve:
 
 - A non-production Supabase staging project, project reference, region/data-residency choice, plan/spend cap, and project owner.
@@ -24,7 +26,7 @@ Provide or approve:
 - Auth site URL/redirect URLs and a private Storage bucket decision if the migration default must differ.
 - Backup/PITR features, retention, RPO/RTO, restore-test owner, log retention, and database alert thresholds.
 
-Validation work: apply migrations `202608210001`–`003` to a fresh staging database with pinned CLI `2.111.0`; run `supabase db lint` and `supabase test db`; generate and commit database types; test anonymous denial, cross-tenant/scoped access, invitation/reset/session/MFA flows, organization switching, private upload/scan/signed-read expiry, ingestion transitions, duplicate posting, and a restore into an isolated project.
+Validation work: first confirm that the linked project is non-production and inspect its region, status, current migration ledger, tables, Auth settings, Storage buckets/policies, and advisors. Apply only missing migrations `202608210001`–`003` in order without rewriting them; run available database lint/advisors and pgTAP suites; generate and commit database types; test anonymous denial, cross-tenant/scoped access, invitation/reset/session/MFA flows, organization switching, private upload/scan/signed-read expiry, ingestion transitions, duplicate posting, and a restore into an isolated project.
 
 ## 3. IHS or AFS vehicle-volume access
 
@@ -83,6 +85,8 @@ Deployment:
 
 - Cloudflare account, Worker/project and staging/production environments, region/domain/DNS ownership, access method, deployment approvers, rollback owner, public Supabase variables, encrypted Worker secrets, log destination/sampling, spend/CPU caps, and custom-domain/TLS policy.
 - Promotion policy from staging to production and evidence required for sign-off: CI, database/RLS/auth/storage tests, connector/provider tests, accessibility/browser tests, backup restore, health/log verification, and approval record.
+
+Activation status: the named `tract-recovery-platform-staging` Wrangler environment is committed with fail-closed Supabase binding declarations and production-shaped logging. Its real bundle passes `pnpm cloudflare:dry-run:staging` without an account or upload. Account access, secret/public binding values, spending controls, hostname/DNS, upload, and log verification remain external and approval-gated.
 
 ## 7. Authoritative business configuration
 

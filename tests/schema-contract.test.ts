@@ -82,6 +82,15 @@ describe("static database migration contract", () => {
     expect(combinedSql).not.toMatch(/with check\s*\(\s*true\s*\)/i);
   });
 
+  it("keeps document objects private and server-signed", () => {
+    expect(combinedSql).toMatch(
+      /values\s*\(\s*'tract-private-documents',\s*'tract-private-documents',\s*false,/i,
+    );
+    expect(combinedSql).toContain("file_size_limit = excluded.file_size_limit");
+    expect(combinedSql).not.toMatch(/create policy[\s\S]*?on storage\.objects/i);
+    expect(combinedSql).toContain("short-lived signed URLs");
+  });
+
   it("contains no credential-shaped values in migration text", () => {
     expect(combinedSql).not.toMatch(
       /service_role_key|supabase_service_role_key|bearer\s+[a-z0-9._-]+/i,

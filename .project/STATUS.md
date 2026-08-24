@@ -2,7 +2,7 @@
 
 ## Current stage
 
-All useful Milestone 1–9 production work is complete. The approved GitHub repository is connected and the existing `main` history is published without rewriting it. Automatic GitHub Actions execution is disabled because the account's hosted Actions credits are exhausted; the verified workflow remains available for manual execution after credits reset. Hosted activation remains fail-closed, modular, and approval-gated.
+All useful Milestone 1–9 production work is complete. The approved GitHub repository is connected and the existing `main` history is published without rewriting it. Automatic GitHub Actions execution is disabled because the account's hosted Actions credits are exhausted; the verified workflow remains available for manual execution after credits reset. The project-scoped Supabase MCP server is now registered and OAuth-authenticated, but the running task predates that tool registration and therefore has not inspected or changed staging. Hosted activation remains fail-closed, modular, and approval-gated.
 
 ## Completed
 
@@ -36,12 +36,14 @@ All useful Milestone 1–9 production work is complete. The approved GitHub repo
 - Accessibility sampling found no unnamed controls, duplicate ids, positive tab order, missing image alternatives, or missing table captions; 67 rendered main-content text samples pass WCAG AA contrast after the primary-action color correction. Full manual assistive-technology/browser certification remains external.
 - Live local health response verified fail-closed `503` behavior plus no-store, CSP, frame denial, opener isolation, and malformed request-id replacement. Bundle inspection verified the hardened entry is present in `dist/server/index.js`.
 - Static migration tests pass for order, transaction wrapping, RLS coverage, security-definer `search_path`, critical immutability/posting guards, and credential-shaped text. Cloudflare Worker production build passes without connecting an account.
+- Static migration tests also enforce the private document bucket, size limit, absence of direct authenticated object policies, and server-signed access contract.
+- The named `tract-recovery-platform-staging` Cloudflare environment declares every required Supabase binding without values, retains structured logging, and passes a real no-upload Wrangler bundle dry run at 2.86 MiB uncompressed and 604 KiB gzip.
 - Repository scan found no committed secret material or unresolved source TODO/FIXME markers; retained references to the original prototype are limited to durable provenance/safeguard documentation.
 - GitHub Actions successfully created a fresh Supabase stack, applied all three migrations, passed database lint, and passed both pgTAP suites. Its first RLS run exposed an incorrect test expectation: PostgreSQL denied a member's role update by matching zero rows rather than raising an exception. The corrected regression verifies that the role remains unchanged, and both hosted CI jobs pass at commit `27929e4`.
 
 ## Genuine activation blockers
 
-- A Supabase staging project/access is required to apply migrations, generate project database types, and execute the pgTAP/RLS/auth/storage/restore suite.
+- A fresh Codex task is required to load the newly registered and OAuth-authenticated Supabase MCP tools. The linked project must then be confirmed as non-production before applying any missing migrations, generating project database types, or executing the staging pgTAP/RLS/Auth/Storage/restore suite.
 - A Cloudflare account/project and controlled secret values are required for a staging deployment and hosted log/health verification.
 - Production IHS/AFS, SAP/ERP, document extraction/scanning, notification, and SSO providers require approved specifications, credentials, licensing/data-processing terms, and any paid-service approval.
 - Authoritative customer rules remain required for FX, settlement rounding, claim eligibility, clawbacks/profit release, retention, residency, RPO/RTO, notification recipients, and formal compliance commitments. Existing behavior remains versioned/configurable or disabled.
@@ -49,4 +51,4 @@ All useful Milestone 1–9 production work is complete. The approved GitHub repo
 
 ## Exact next step
 
-Link the approved Supabase staging project, generate project database types, and execute hosted Auth/Storage/restore checks before staging deployment. Activate IHS/AFS, SAP, scanning/extraction, email, SSO, or other providers independently only after the corresponding specifications, samples, licensing/security approval, credentials, and reconciliation evidence in [docs/external-activation.md](../docs/external-activation.md) are complete.
+Start a fresh Codex task in this repository so it loads the authenticated Supabase MCP server, then confirm project `qflwjgmrspmcyghzinwz` is staging, inspect and apply only missing migrations, run hosted database validation, generate types, and execute Auth/Storage/ingestion checks before staging deployment. Activate IHS/AFS, SAP, scanning/extraction, email, SSO, or other providers independently only after the corresponding specifications, samples, licensing/security approval, credentials, and reconciliation evidence in [docs/external-activation.md](../docs/external-activation.md) are complete.

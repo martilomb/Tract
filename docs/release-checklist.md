@@ -6,6 +6,7 @@
 - [x] Static migration contract tests pass for ordering, transactions, RLS coverage, security-definer search paths, critical immutable/posting guards, and credential-shaped text.
 - [x] GitHub Actions applies all three Supabase migrations cleanly to a fresh database.
 - [x] Hosted `supabase db lint` and `supabase test db` pass, including ingestion, role-elevation, scoped-access, and cross-tenant denial checks.
+- [x] The project-scoped Supabase MCP server is registered and OAuth-authenticated locally for `qflwjgmrspmcyghzinwz`; staging inspection remains pending in a fresh Codex task that loads the newly registered tools.
 - [ ] Generated database types are committed and server queries use them.
 - [ ] Authentication, invitation, password reset, MFA policy, session expiry, and multi-organization switching pass browser tests.
 - [ ] Private document upload, scan, signed read, expiry, replacement, and denial pass.
@@ -20,4 +21,5 @@
 - [ ] Structured logs, alerts, incident ownership, spend limits, and retention are configured.
 - [x] Production builds fail closed when the required connection is absent; demonstration mode requires an explicit build-time flag and is visibly labelled.
 - [x] The generated Worker uses the hardened custom server entry; live local responses include correlation, CSP/isolation/frame/referrer/permissions/cache controls and structured request events.
+- [x] A distinct, fail-closed Cloudflare staging environment is committed, and its production bundle passes a local no-upload Wrangler dry run.
 - [x] No unsupported integration, compliance, accounting, or predictive claim is presented as an active capability.
