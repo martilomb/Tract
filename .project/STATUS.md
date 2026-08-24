@@ -2,7 +2,7 @@
 
 ## Current stage
 
-All useful Milestone 1–9 production work is complete. The approved GitHub repository is connected and the existing `main` history is published without rewriting it. Hosted activation remains fail-closed, modular, and approval-gated.
+All useful Milestone 1–9 production work is complete. The approved GitHub repository is connected and the existing `main` history is published without rewriting it. Automatic GitHub Actions execution is disabled because the account's hosted Actions credits are exhausted; the verified workflow remains available for manual execution after credits reset. Hosted activation remains fail-closed, modular, and approval-gated.
 
 ## Completed
 
