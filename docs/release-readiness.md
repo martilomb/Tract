@@ -15,7 +15,7 @@ Do not substitute synonyms for the label. “Tested everything” means the docu
 
 ## Release-candidate evidence matrix
 
-Current assessment (24 August 2026): **INCREMENT COMPLETE** at published commit `caa7302`, with a verified Contracts/DCR workflow increment in progress and approved scope remaining. Product-owner acceptance is explicitly not granted: Operations/Settings corrections, the complete revised verification matrix, and a new localhost review remain open. The earlier credential-free Milestone 10 pass claim is superseded; release-candidate rows remain unchecked until the entire approved A–G correction and documented risk-based matrix pass.
+Current assessment (27 August 2026): **INCREMENT COMPLETE** at published commit `2860955`, with a bounded Operations/Settings correction verified locally but not yet published. Product-owner acceptance is explicitly not granted. Gemma's revised completion mandate requires authenticated, tenant-scoped Supabase persistence and reload/retrieval/reconciliation evidence for every production workflow; synthetic fixtures, browser-local state, schema-only tests, and polished demonstration routes do not satisfy release-candidate rows. The application spine, golden production agreement-activation workflow, remaining production-backed vertical slices, complete verification matrix, and a new localhost review remain open.
 
 A **RELEASE CANDIDATE READY** handoff must report every row below with exact evidence, counts, and any approved deferral.
 

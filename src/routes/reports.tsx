@@ -18,12 +18,9 @@ import {
 } from "@/components/hierarchical-program-selector";
 import { useDataset } from "@/lib/commodity";
 import { useAnalysis } from "@/hooks/use-analysis";
-import {
-  DEFAULT_ANALYSIS_SCOPE,
-  type AnalysisRecord,
-  type AnalysisSnapshot,
-} from "@/domain/analytics";
-import { toCsv } from "@/domain/reports";
+import { DEFAULT_ANALYSIS_SCOPE } from "@/domain/analytics";
+import { buildCurrentScopeReport, type ReportFamily } from "@/domain/reports";
+import { downloadCurrentScopeCsv, downloadCurrentScopeXlsx } from "@/lib/report-download";
 
 const reports = [
   {
@@ -121,7 +118,12 @@ function ReportsPage() {
     partId: selection.partId ?? "all",
   });
   const report = reports.find((candidate) => candidate.id === reportId)!;
-  const rows = useMemo(() => reportRows(reportId, snapshot), [reportId, snapshot]);
+  const reportPackage = useMemo(
+    () => buildCurrentScopeReport(reportId as ReportFamily, snapshot),
+    [reportId, snapshot],
+  );
+  const rows = reportPackage.rows;
+  const [xlsxGenerating, setXlsxGenerating] = useState(false);
   const updateScope = (next: HierarchySelection) => {
     setSelection(next);
     void navigate({
@@ -207,18 +209,38 @@ function ReportsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => window.print()}>
+            <Button
+              variant="outline"
+              aria-label={`Print or save ${report.title} as a PDF for the current scope`}
+              onClick={() => window.print()}
+            >
               <Printer className="mr-1.5 h-4 w-4" /> Print / Save PDF
             </Button>
             <Button
+              aria-label={`Generate ${report.title} CSV for the current scope`}
               onClick={() =>
-                download(
+                downloadCurrentScopeCsv(
                   `tract-${reportId}-${snapshot.provenance.asOf.slice(0, 10)}.csv`,
-                  toCsv(rows),
+                  reportPackage,
                 )
               }
             >
               <Download className="mr-1.5 h-4 w-4" /> Generate CSV
+            </Button>
+            <Button
+              variant="outline"
+              disabled={xlsxGenerating}
+              aria-label={`Generate ${report.title} XLSX for the current scope`}
+              onClick={() => {
+                setXlsxGenerating(true);
+                void downloadCurrentScopeXlsx(
+                  `tract-${reportId}-${snapshot.provenance.asOf.slice(0, 10)}.xlsx`,
+                  reportPackage,
+                ).finally(() => setXlsxGenerating(false));
+              }}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              {xlsxGenerating ? "Generating XLSX…" : "Generate XLSX"}
             </Button>
           </div>
         </div>
@@ -258,70 +280,4 @@ function ReportsPage() {
       </section>
     </AppShell>
   );
-}
-function reportRows(reportId: ReportId, snapshot: AnalysisSnapshot): Array<Record<string, string>> {
-  const metadata = {
-    "Demo data": "Synthetic — not persisted or live",
-    Organization: snapshot.provenance.organization,
-    Scope: snapshot.scopeLabel,
-    "As of": snapshot.provenance.asOf,
-    Currency: snapshot.provenance.currency,
-    "Calculation version": snapshot.provenance.calculationVersion,
-    "Forecast version": snapshot.provenance.forecastVersion,
-    "Source version": snapshot.provenance.sourceVersion,
-  };
-  const record = (row: AnalysisRecord) => ({
-    ...metadata,
-    Record: row.label,
-    Context: row.secondaryLabel,
-    "Recoverable cost": row.totalRecoverableCost.toFixed(2),
-    "Recovered to date": row.recoveredToDate.toFixed(2),
-    "Forecast at completion": row.forecastAtCompletion.toFixed(2),
-    "Projected variance": row.projectedVariance.toFixed(2),
-    "Evidence references": row.evidenceIds.join(" | "),
-  });
-  if (reportId === "actual-contract-forecast")
-    return snapshot.series.map((period) => ({
-      ...metadata,
-      Month: period.period,
-      Actual: period.actual?.toFixed(2) ?? "",
-      "Contract curve": period.contract.toFixed(2),
-      Forecast: period.forecast.toFixed(2),
-      Variance: period.variance.toFixed(2),
-      "Cumulative recovery": period.cumulativeRecovery.toFixed(2),
-      "Remaining recovery": period.remainingRecovery.toFixed(2),
-    }));
-  if (reportId === "recovery-exceptions")
-    return snapshot.records.filter((row) => row.projectedVariance !== 0).map(record);
-  if (reportId === "dcr-status-aging")
-    return snapshot.records.map((row) => ({
-      ...metadata,
-      Record: row.label,
-      "DCR data state": "Synthetic scope manifest — authenticated DCR records not loaded",
-      "Linked program": row.programId,
-      "Evidence references": row.evidenceIds.join(" | "),
-    }));
-  if (reportId === "ingestion-reconciliation")
-    return [
-      {
-        ...metadata,
-        "Ingestion data state": "Synthetic scope manifest — authenticated import runs not loaded",
-        "Scoped records": String(snapshot.records.length),
-        "Recoverable cost": snapshot.metrics.totalRecoverableCost.toFixed(2),
-        "Forecast at completion": snapshot.metrics.forecastAtCompletion.toFixed(2),
-        Variance: snapshot.metrics.projectedVariance.toFixed(2),
-      },
-    ];
-  return snapshot.records.map(record);
-}
-function download(name: string, text: string) {
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
 }

@@ -150,7 +150,9 @@ function PartsPage() {
             <Link to="/contracts">Set up / activate recovery</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
-            <Link to="/settings">Admin master data</Link>
+            <Link to="/settings" hash="master-data">
+              Admin master data
+            </Link>
           </Button>
         </>
       }

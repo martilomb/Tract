@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { PartRevisionProposalInput } from "@/domain/master-data-proposals";
 import {
   Select,
   SelectContent,
@@ -23,7 +24,13 @@ import {
 } from "@/components/ui/select";
 import { programModelYears, programs } from "@/lib/demo-data";
 
-export function CreatePartRevisionDialog({ trigger }: { trigger: ReactNode }) {
+export function CreatePartRevisionDialog({
+  trigger,
+  onValidated,
+}: {
+  trigger: ReactNode;
+  onValidated: (input: Omit<PartRevisionProposalInput, "id" | "createdAt">) => unknown;
+}) {
   const [open, setOpen] = useState(false);
   const [partNumber, setPartNumber] = useState("");
   const [revision, setRevision] = useState("");
@@ -33,19 +40,54 @@ export function CreatePartRevisionDialog({ trigger }: { trigger: ReactNode }) {
     (programModelYears[programs[0]!.id] ?? []).join(", "),
   );
   const [sourceDcr, setSourceDcr] = useState("");
+  const [historicalLink, setHistoricalLink] = useState("");
+  const [reviewReason, setReviewReason] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState("2026-08-24");
 
   const submit = () => {
-    if (!partNumber.trim() || !revision.trim() || !program.trim() || !effectiveFrom) {
-      toast.error("Part number, revision, program, and effective date are required.");
+    const years = modelYears
+      .split(",")
+      .map((value) => Number(value.trim()))
+      .filter(Number.isInteger);
+    if (
+      !partNumber.trim() ||
+      !revision.trim() ||
+      !program.trim() ||
+      !effectiveFrom ||
+      years.length === 0 ||
+      !reviewReason.trim()
+    ) {
+      toast.error(
+        "Part number, revision, governed model year, effective date, and review reason are required.",
+      );
       return;
     }
-    toast.success(`Part revision draft validated — ${partNumber.trim()} ${revision.trim()}`, {
-      description: sourceDcr.trim()
-        ? `Linked to ${sourceDcr.trim()}; the historical part remains unchanged.`
-        : "No DCR was created. Link an existing approved change request before approving the revision.",
-    });
-    setOpen(false);
+    try {
+      onValidated({
+        organizationId: "demo-org",
+        partNumber,
+        revision,
+        description,
+        programId: program,
+        modelYears: years,
+        effectiveFrom,
+        sourceDcr,
+        historicalLink,
+        reviewReason,
+      });
+      toast.success(
+        `Part revision proposal saved for review — ${partNumber.trim()} ${revision.trim()}`,
+        {
+          description:
+            "Browser-local pending review; historical records remain unchanged and no database record or approval was created.",
+        },
+      );
+      setOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Part revision proposal could not be saved.",
+      );
+    }
   };
 
   return (
@@ -111,6 +153,13 @@ export function CreatePartRevisionDialog({ trigger }: { trigger: ReactNode }) {
               placeholder="Optional for draft; required for redesign approval"
             />
           </Field>
+          <Field label="Historical part or revision link">
+            <Input
+              value={historicalLink}
+              onChange={(event) => setHistoricalLink(event.target.value)}
+              placeholder="Superseded part or revision identifier"
+            />
+          </Field>
           <Field label="Effective from">
             <Input
               type="date"
@@ -127,12 +176,21 @@ export function CreatePartRevisionDialog({ trigger }: { trigger: ReactNode }) {
               />
             </Field>
           </div>
+          <div className="sm:col-span-2">
+            <Field label="Review reason">
+              <Input
+                value={reviewReason}
+                onChange={(event) => setReviewReason(event.target.value)}
+                placeholder="Why this new part or revision needs review"
+              />
+            </Field>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={submit}>Validate admin draft</Button>
+          <Button onClick={submit}>Save pending proposal</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

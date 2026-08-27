@@ -10,7 +10,7 @@ describe("Milestone 10 analytical workspaces", () => {
     (name) => {
       const source = route(name);
       expect(source).toMatch(/useAnalysis|buildAnalysisSnapshot/);
-      expect(source).toMatch(/analysisCsv|toCsv/);
+      expect(source).toMatch(/analysisCsv|toCsv|buildCurrentScopeReport/);
       expect(source).toContain("HierarchicalProgramSelector");
       expect(source).toMatch(/calculation|provenance/i);
       expect(source).not.toMatch(/TARGET_|Math\.random|Prepared demo review package/);
@@ -29,5 +29,22 @@ describe("Milestone 10 analytical workspaces", () => {
     const source = route("parts");
     expect(source).toContain("selectedTriggerRef");
     expect(source).toContain("selectedTriggerRef.current?.focus()");
+  });
+
+  it("restores focus to the Overview tile that opened its controlled detail dialog", () => {
+    const source = route("index");
+    expect(source).toContain("detailTrigger");
+    expect(source).toContain("detailTrigger.current?.focus()");
+  });
+
+  it("keeps every report-family action named, current-scope, and connected to a download path", () => {
+    const source = route("reports");
+    expect(source).toContain("buildCurrentScopeReport");
+    expect(source).toContain("downloadCurrentScopeCsv");
+    expect(source).toContain("downloadCurrentScopeXlsx");
+    expect(source).toContain("Print or save ${report.title} as a PDF for the current scope");
+    expect(source).toContain("Generate ${report.title} CSV for the current scope");
+    expect(source).toContain("Generate ${report.title} XLSX for the current scope");
+    expect(source).not.toMatch(/Prepared demo review package|onClick=\{\(\) => \{\}\}/);
   });
 });

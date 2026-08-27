@@ -15,13 +15,13 @@ import {
   ClipboardCheck,
   Cable,
   FileSignature,
-  PlugZap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import logo from "@/assets/tract-logo-dark.png";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useDemoSettings } from "@/domain/demo-settings";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +42,6 @@ const nav = [
   { to: "/forecasts", label: "Forecasts", icon: Sparkles },
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/operations", label: "Operations", icon: Cable },
-  { to: "/connections", label: "Data Connections", icon: PlugZap },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -74,6 +73,14 @@ export function AppShell({
   actions?: ReactNode;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const settings = useDemoSettings();
+  const initials = settings.profile.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,10 +205,12 @@ export function AppShell({
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full gradient-brand text-xs font-semibold text-white">
-                    JR
+                    {initials}
                   </div>
                   <div className="hidden text-left md:block">
-                    <div className="text-sm font-medium leading-tight">Local reviewer</div>
+                    <div className="text-sm font-medium leading-tight">
+                      {settings.profile.displayName}
+                    </div>
                     <div className="text-xs text-muted-foreground">Demonstration workspace</div>
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />

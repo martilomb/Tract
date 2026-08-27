@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Children, cloneElement, isValidElement, useId, useState } from "react";
+import { Children, cloneElement, isValidElement, useEffect, useId, useState } from "react";
 import { Save, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveDemoSettings, useDemoSettings } from "@/domain/demo-settings";
 import {
   Select,
   SelectContent,
@@ -20,9 +21,28 @@ import {
 export const Route = createFileRoute("/profile")({ component: ProfilePage });
 
 function ProfilePage() {
-  const [displayName, setDisplayName] = useState("Local reviewer");
-  const [timeZone, setTimeZone] = useState("Europe/Madrid");
-  const [dateFormat, setDateFormat] = useState("yyyy-mm-dd");
+  const settings = useDemoSettings();
+  const [displayName, setDisplayName] = useState(settings.profile.displayName);
+  const [timeZone, setTimeZone] = useState(settings.profile.timeZone);
+  const [dateFormat, setDateFormat] = useState(settings.profile.dateFormat);
+
+  useEffect(() => {
+    setDisplayName(settings.profile.displayName);
+    setTimeZone(settings.profile.timeZone);
+    setDateFormat(settings.profile.dateFormat);
+  }, [settings.profile]);
+
+  const savePreferences = () => {
+    if (!displayName.trim()) {
+      toast.error("Display name is required.");
+      return;
+    }
+    saveDemoSettings({ profile: { displayName, timeZone, dateFormat } });
+    toast.success("Personal preferences saved locally", {
+      description:
+        "This browser-only demonstration state updates the workspace header; no identity record changed.",
+    });
+  };
 
   return (
     <AppShell
@@ -36,7 +56,8 @@ function ProfilePage() {
               <UserRound className="h-5 w-5" /> Personal preferences
             </CardTitle>
             <CardDescription>
-              Demonstration changes remain local; authenticated persistence is fail-closed.
+              Changes are stored only in this browser's demonstration workspace; authenticated
+              persistence remains fail-closed.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -79,13 +100,7 @@ function ProfilePage() {
               </Select>
             </Field>
             <div className="sm:col-span-2">
-              <Button
-                onClick={() =>
-                  toast.success("Profile preferences validated locally", {
-                    description: "Connect authenticated staging to persist this change.",
-                  })
-                }
-              >
+              <Button onClick={savePreferences}>
                 <Save className="mr-1.5 h-4 w-4" /> Save preferences
               </Button>
             </div>

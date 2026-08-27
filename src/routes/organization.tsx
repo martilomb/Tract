@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Children, cloneElement, isValidElement, useId, useState } from "react";
+import { Children, cloneElement, isValidElement, useEffect, useId, useState } from "react";
 import { Building2, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveDemoSettings, useDemoSettings } from "@/domain/demo-settings";
 import {
   Table,
   TableBody,
@@ -32,8 +33,26 @@ const MEMBERS = [
 ] as const;
 
 function OrganizationPage() {
-  const [name, setName] = useState("Demonstration organization");
-  const [currency, setCurrency] = useState("USD");
+  const settings = useDemoSettings();
+  const [name, setName] = useState(settings.organization.name);
+  const [currency, setCurrency] = useState(settings.organization.currency);
+
+  useEffect(() => {
+    setName(settings.organization.name);
+    setCurrency(settings.organization.currency);
+  }, [settings.organization]);
+
+  const saveOrganization = () => {
+    if (!name.trim() || currency.trim().length !== 3) {
+      toast.error("Organization name and a three-letter settlement currency are required.");
+      return;
+    }
+    saveDemoSettings({ organization: { name, currency } });
+    toast.success("Organization preferences saved locally", {
+      description:
+        "This browser-only demonstration state updates Settings; no tenant record changed.",
+    });
+  };
 
   return (
     <AppShell
@@ -62,13 +81,7 @@ function OrganizationPage() {
                 maxLength={3}
               />
             </Field>
-            <Button
-              onClick={() =>
-                toast.success("Organization settings validated locally", {
-                  description: "No staging record was changed.",
-                })
-              }
-            >
+            <Button onClick={saveOrganization}>
               <Save className="mr-1.5 h-4 w-4" /> Save organization
             </Button>
           </CardContent>

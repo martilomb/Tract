@@ -61,6 +61,7 @@ import {
   type AnalysisScope,
   type AnalysisSnapshot,
 } from "@/domain/analytics";
+import { buildBoundedTablePage } from "@/domain/bounded-table";
 import { formatMoney, parts, programModelYears, programs, statusMeta } from "@/lib/demo-data";
 
 type OverviewSearch = {
@@ -786,6 +787,7 @@ function KpiDetailDialog({
   organization: AnalysisSnapshot;
   my2026: AnalysisSnapshot;
 }) {
+  const [page, setPage] = useState(1);
   if (!detail) return null;
   const config: Record<
     DetailKey,
@@ -846,6 +848,13 @@ function KpiDetailDialog({
   const rows = selected.snapshot.programRecords
     .filter(selected.filter)
     .sort((left, right) => selected.sort(right) - selected.sort(left));
+  const renderedRows = buildBoundedTablePage({
+    rows,
+    page,
+    pageSize: 50,
+    direction: "none",
+    compare: () => 0,
+  });
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl" data-kpi-detail={detail}>
@@ -866,8 +875,8 @@ function KpiDetailDialog({
                 <th className="px-3 py-2 text-left font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((record) => (
+            <tbody className="divide-y divide-border" data-overlay-render-limit="50">
+              {renderedRows.rows.map((record) => (
                 <tr key={record.id}>
                   <td className="px-3 py-2">
                     <Link
@@ -902,7 +911,32 @@ function KpiDetailDialog({
             </tbody>
           </table>
         </div>
-        <div className="sticky bottom-0 flex justify-end bg-background pt-3">
+        <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-2 bg-background pt-3">
+          <p className="text-xs text-muted-foreground">
+            Showing {renderedRows.rows.length} of {renderedRows.totalRows} programs; at most 50 rows
+            render at once.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={renderedRows.page === 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Previous
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Page {renderedRows.page} of {renderedRows.pageCount}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={renderedRows.page === renderedRows.pageCount}
+              onClick={() => setPage((current) => Math.min(renderedRows.pageCount, current + 1))}
+            >
+              Next
+            </Button>
+          </div>
           <Button variant="outline" onClick={() => downloadCsv(selected.snapshot)}>
             <Download className="mr-1.5 h-4 w-4" /> Download this breakdown
           </Button>
