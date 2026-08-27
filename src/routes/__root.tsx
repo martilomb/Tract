@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { ProductionSpine } from "@/components/production-spine";
 import { CommodityProvider } from "@/lib/commodity";
 
 function NotFoundComponent() {
@@ -126,7 +127,11 @@ function RootComponent() {
   const demoMode = import.meta.env.VITE_TRACT_DEMO_MODE === "true";
 
   if (!demoMode) {
-    return <ConfigurationRequired />;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <ProductionSpine />
+      </QueryClientProvider>
+    );
   }
 
   return (
@@ -137,27 +142,5 @@ function RootComponent() {
         <Toaster position="top-right" richColors closeButton />
       </CommodityProvider>
     </QueryClientProvider>
-  );
-}
-
-function ConfigurationRequired() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">
-      <section className="w-full max-w-lg rounded-xl border border-border bg-card p-8 shadow-sm">
-        <div className="mb-4 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-          Secure by default
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight">Production connection required</h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          This build will not display demonstration accounting data unless explicit demo mode is
-          enabled. Apply the Supabase migrations, verify Row Level Security, and configure the
-          deployment secrets before enabling a production workspace.
-        </p>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Local reviewers can copy <code>.env.example</code> to <code>.env.local</code> and keep
-          <code> VITE_TRACT_DEMO_MODE=true</code>.
-        </p>
-      </section>
-    </main>
   );
 }

@@ -14,6 +14,13 @@ export function createUserDataClient(input: {
   });
 }
 
+export function createPublicAuthClient(environmentSource: Record<string, string | undefined>) {
+  const environment = readServerEnvironment(environmentSource);
+  return createClient<Database>(environment.VITE_SUPABASE_URL, environment.VITE_SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
+  });
+}
+
 export function createServiceDataClient(environmentSource: Record<string, string | undefined>) {
   const environment = readServerEnvironment(environmentSource);
   if (!environment.SUPABASE_SERVICE_ROLE_KEY) {

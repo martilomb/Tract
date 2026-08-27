@@ -4,7 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15";
+    PostgrestVersion: "14.17";
   };
   public: {
     Tables: {
@@ -3189,6 +3189,128 @@ export type Database = {
           },
         ];
       };
+      organization_invitations: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          created_at: string;
+          email: string;
+          expires_at: string;
+          id: string;
+          invited_by: string;
+          organization_id: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          role: Database["public"]["Enums"]["organization_role"];
+          status: Database["public"]["Enums"]["invitation_status"];
+          target_user_id: string | null;
+          token_digest: string;
+          updated_at: string;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          created_at?: string;
+          email: string;
+          expires_at: string;
+          id?: string;
+          invited_by: string;
+          organization_id: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          role?: Database["public"]["Enums"]["organization_role"];
+          status?: Database["public"]["Enums"]["invitation_status"];
+          target_user_id?: string | null;
+          token_digest: string;
+          updated_at?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          created_at?: string;
+          email?: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string;
+          organization_id?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          role?: Database["public"]["Enums"]["organization_role"];
+          status?: Database["public"]["Enums"]["invitation_status"];
+          target_user_id?: string | null;
+          token_digest?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_invitations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_subscriptions: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          current_period_end: string | null;
+          current_period_start: string | null;
+          id: string;
+          organization_id: string;
+          plan_id: string;
+          provider_customer_ref: string | null;
+          provider_key: string | null;
+          provider_subscription_ref: string | null;
+          status: Database["public"]["Enums"]["subscription_status"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          current_period_end?: string | null;
+          current_period_start?: string | null;
+          id?: string;
+          organization_id: string;
+          plan_id: string;
+          provider_customer_ref?: string | null;
+          provider_key?: string | null;
+          provider_subscription_ref?: string | null;
+          status?: Database["public"]["Enums"]["subscription_status"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          current_period_end?: string | null;
+          current_period_start?: string | null;
+          id?: string;
+          organization_id?: string;
+          plan_id?: string;
+          provider_customer_ref?: string | null;
+          provider_key?: string | null;
+          provider_subscription_ref?: string | null;
+          status?: Database["public"]["Enums"]["subscription_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_subscriptions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_subscriptions_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plan_catalog";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organizations: {
         Row: {
           created_at: string;
@@ -3717,6 +3839,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "permission_grants_member_same_tenant";
+            columns: ["organization_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "user_id"];
+          },
+          {
             foreignKeyName: "permission_grants_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
@@ -3724,6 +3853,39 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      plan_catalog: {
+        Row: {
+          active: boolean;
+          code: string;
+          created_at: string;
+          features: Json;
+          id: string;
+          name: string;
+          seat_limit: number;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          code: string;
+          created_at?: string;
+          features?: Json;
+          id?: string;
+          name: string;
+          seat_limit: number;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          code?: string;
+          created_at?: string;
+          features?: Json;
+          id?: string;
+          name?: string;
+          seat_limit?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       plants: {
         Row: {
@@ -4706,6 +4868,63 @@ export type Database = {
           },
         ];
       };
+      seat_entitlements: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          effective_from: string;
+          effective_until: string | null;
+          id: string;
+          included_seats: number;
+          organization_id: string;
+          source: string;
+          status: Database["public"]["Enums"]["entitlement_status"];
+          subscription_id: string;
+          version: number;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          effective_from: string;
+          effective_until?: string | null;
+          id?: string;
+          included_seats: number;
+          organization_id: string;
+          source?: string;
+          status?: Database["public"]["Enums"]["entitlement_status"];
+          subscription_id: string;
+          version: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          effective_from?: string;
+          effective_until?: string | null;
+          id?: string;
+          included_seats?: number;
+          organization_id?: string;
+          source?: string;
+          status?: Database["public"]["Enums"]["entitlement_status"];
+          subscription_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "seat_entitlements_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "seat_entitlements_organization_id_subscription_id_fkey";
+            columns: ["organization_id", "subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_subscriptions";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       suppliers: {
         Row: {
           created_at: string;
@@ -5489,7 +5708,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      accept_organization_invitation: {
+        Args: { invitation_token: string };
+        Returns: string;
+      };
     };
     Enums: {
       configuration_kind:
@@ -5511,6 +5733,7 @@ export type Database = {
         | "cancelled";
       eligible_volume_basis:
         "part_shipments" | "vehicle_production" | "invoiced_units" | "manual_approved";
+      entitlement_status: "active" | "superseded" | "revoked";
       erp_transaction_type:
         | "shipment"
         | "purchase_order"
@@ -5541,11 +5764,13 @@ export type Database = {
         | "rejected"
         | "failed";
       ingestion_transport: "csv" | "excel" | "rest" | "odata" | "file_drop";
+      invitation_status: "pending" | "accepted" | "expired" | "revoked";
       job_status: "pending" | "processing" | "completed" | "failed" | "cancelled";
       organization_role: "administrator" | "full_view" | "member";
       permission_name: "read" | "write" | "approve";
       recovery_agreement_status:
         "draft" | "under_review" | "approved" | "active" | "expired" | "superseded" | "rejected";
+      subscription_status: "trialing" | "active" | "past_due" | "paused" | "cancelled" | "expired";
       vehicle_volume_kind: "actual" | "forecast" | "revised" | "scenario";
     };
     CompositeTypes: {
@@ -5693,6 +5918,7 @@ export const Constants = {
         "invoiced_units",
         "manual_approved",
       ],
+      entitlement_status: ["active", "superseded", "revoked"],
       erp_transaction_type: [
         "shipment",
         "purchase_order",
@@ -5726,6 +5952,7 @@ export const Constants = {
         "failed",
       ],
       ingestion_transport: ["csv", "excel", "rest", "odata", "file_drop"],
+      invitation_status: ["pending", "accepted", "expired", "revoked"],
       job_status: ["pending", "processing", "completed", "failed", "cancelled"],
       organization_role: ["administrator", "full_view", "member"],
       permission_name: ["read", "write", "approve"],
@@ -5738,6 +5965,7 @@ export const Constants = {
         "superseded",
         "rejected",
       ],
+      subscription_status: ["trialing", "active", "past_due", "paused", "cancelled", "expired"],
       vehicle_volume_kind: ["actual", "forecast", "revised", "scenario"],
     },
   },

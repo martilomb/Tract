@@ -13,6 +13,16 @@ The canonical business rules live in `src/domain`. Database constraints and RLS 
 
 All analytical workspaces and exports consume one canonical analysis snapshot rather than re-aggregating route-local values. In demonstration mode, the snapshot starts from deterministic part-level facts, allocates exact model-year values, and rolls them up part → program → OEM. In an authenticated workspace, the same interface must be populated from tenant-scoped persisted query results. Scope, organization, as-of time, currency, calculation version, forecast version, source version, provenance, chart series, record table, alerts, and export rows travel together so a filter cannot silently change only one surface.
 
+### Production application spine
+
+Non-demo mode authenticates through server routes, never a browser-held Supabase session. Email/password credentials are posted only to the same-origin Auth endpoint; the server exchanges them with Supabase Auth and stores opaque access/refresh values in HttpOnly, SameSite cookies. Access tokens are validated and refreshed before use, sign-out revokes the remote session before clearing cookies, and state-changing session endpoints reject missing or cross-origin `Origin` headers. Ordinary request logs include only the path and never request bodies, cookies, tokens, email addresses, or provider errors.
+
+The session resolver creates an end-user Supabase client carrying the validated access token. It loads only active memberships plus RLS-visible organizations, validates any selected organization against that returned set, and never accepts a caller-supplied tenant as authority. Non-demo product routes that have not passed their vertical-slice gate render an explicit unavailable state rather than demonstration fixtures.
+
+Organization invitations use 256-bit random URL-safe tokens. Only the SHA-256 digest is persisted; the raw link is returned once to an authorized administrator. Acceptance is an authenticated public RPC whose security-definer path is pinned and whose internal transaction verifies token digest, pending status, expiry, Auth email, replay, existing membership, and seat entitlement before adding the membership and audit/outbox evidence. Email delivery remains a replaceable external activation boundary.
+
+Plans, subscriptions, and versioned seat entitlements are provider-neutral. Provider/customer/subscription identifiers are optional opaque references. Authenticated administrators and full-view users can read bounded entitlement state, but only the server service role may mutate plans, subscriptions, or entitlements; database triggers serialize and fail closed on membership activation and pending-invitation seat reservation.
+
 ## Mandatory invariants
 
 - `organization_id` is the tenant boundary on every owned record.

@@ -8,6 +8,14 @@ Alert on sustained 5xx rate, repeated authorization denial spikes, failed calcul
 
 REST connectors and notification delivery use server-only adapters. Connector results exclude credential material; notification destinations are resolved at delivery and excluded from receipts. Alert on final retry exhaustion and retain only sanitized failure codes in ordinary logs. Provider-specific dashboards and delivery routes remain activation inputs.
 
+## Authentication and seat operations
+
+Non-demo deployments require the public Supabase URL/anonymous key and an approved Auth site/redirect/session policy. The service-role key remains server-only and is required for provisioning provider-neutral plans, subscriptions, and seat entitlements; organization administrators cannot change those records directly. An effective entitlement must exist before a membership can activate or a pending invitation can reserve a seat.
+
+Until an approved transactional email provider is activated, an administrator may create a digest-only invitation and receive its one-time link once for delivery through an approved out-of-band channel. Do not paste invitation links into tickets, logs, source, commits, or general chat. Revoke unused invitations through the governed organization workflow; an expired pending invitation is closed when its authorized replacement is created. Acceptance verifies the signed-in email and consumes the invitation transactionally; retain its audit event and do not repair membership or invitation state manually.
+
+Monitor Auth failures, refresh/revocation errors, repeated invalid invitation attempts, seat-limit denials, last-administrator denials, and cross-tenant denials without recording submitted credentials or tokens. The current staging project has zero Auth identities, so authenticated browser validation remains blocked until approved test identities and Auth URL/session settings are supplied.
+
 ## Data Connections administration
 
 Operations links to the plain-language Data Connections workspace. Organization administrators can start with **Add connection**, **Import file**, **Review imports**, **Resolve errors**, **Map fields**, or **Test connection**. The guided draft retains provider-neutral configuration and a replaceable SAP/ERP boundary; it never embeds provider-specific accounting logic.

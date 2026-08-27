@@ -8,6 +8,12 @@ RLS helper functions are `security definer`, live outside the exposed schemas, p
 
 The atomic agreement-activation function is callable only by authenticated users or the service role and rechecks organization-administrator authority inside the transaction; anonymous execution is revoked. Internal master-data existence helpers are not executable by browser roles, preventing cross-tenant identifier probing. Proposal, alias, merge, approval, and activation audit records retain the authenticated actor and reject cross-tenant entity or approver references.
 
+The application-spine migration requires every permission grant to reference a same-tenant membership and makes `app.can_access_scope` fail unless that membership is active. This closes the verified stale-grant path for deactivated users. Membership identity is immutable, the final active administrator cannot be removed, demoted, or deactivated, and new/reactivated memberships plus pending invitations are serialized against an effective seat entitlement.
+
+Production browser sessions are server-mediated. Access and refresh values are HttpOnly, SameSite cookies; the access token is validated with Supabase Auth for each session resolution, refresh remains server-only, organization selection is accepted only from RLS-returned active memberships, and sign-out attempts remote session revocation before reporting success. State-changing Auth/organization endpoints require same-origin requests. Credential and token values are excluded from application responses except for the one-time invitation link returned to its authorized creator, and request bodies are never logged.
+
+The invitation acceptance RPC intentionally uses `SECURITY DEFINER` to keep membership creation, seat enforcement, invitation status, outbox evidence, and audit atomic. Its `search_path` is pinned; execute is revoked from public/anonymous roles; the authenticated caller must match the normalized invitation email and raw token digest; expired, used, wrong-user, cross-tenant, over-seat, and replay paths fail. The single corresponding security-advisor warning is reviewed and accepted for this bounded function, not treated as a blanket waiver for other security-definer functions.
+
 ## Data and documents
 
 - Tenant ids cannot be reassigned after creation.
@@ -40,4 +46,4 @@ The atomic agreement-activation function is callable only by authenticated users
 
 MFA policy, enterprise SSO, data region/residency, malware scanner, retention duration, formal control mapping, penetration testing, and customer security questionnaires require customer or account-level decisions. No formal compliance claim is made.
 
-Staging verification through migration `202608240003` reports RLS enabled on all 70 public tables, 132 public policies, no security-advisor findings, and transactional denial tests for non-admin activation, cross-tenant materiality/master-data/connector-test access, and direct Active-state bypass. These checks are representative controls, not a claim of exhaustive security proof.
+Staging verification through migration `202608270001` reports RLS enabled on all 74 public tables, 138 public policies, one reviewed security-advisor warning for the bounded invitation RPC, and 85/85 transactional repository pgTAP assertions covering tenant, lifecycle, accounting, ingestion, and application-spine controls. These checks are representative controls, not a claim of exhaustive security proof.

@@ -13,12 +13,21 @@ Every delivery handoff uses exactly one of these labels:
 
 Do not substitute synonyms for the label. “Tested everything” means the documented representative, risk-based matrix passed; it never claims exhaustive proof.
 
+## Production-backed acceptance rule
+
+Synthetic fixtures, browser-local persistence, isolated schema/RLS coverage, domain tests, and visually complete pages are foundation or demonstration evidence only. They cannot justify **RELEASE CANDIDATE READY**. Every enabled production workflow must use authenticated, tenant-scoped Supabase persistence and pass the matching P1–P10 gate in `docs/release-checklist.md`.
+
+A workflow is production-backed only when an authorized non-demo user performs it through the real application, reloads, retrieves the same persisted result, and sees consistent permitted data in every applicable detail, chart, table, export, provenance record, and audit event. The defined slice evidence must include database/RLS, domain, frontend integration, non-demo browser E2E, loading/empty/error, refresh persistence, permissions, audit, desktop/mobile/keyboard/accessibility, and clean console/network results. Enabled no-ops and browser-only simulations are release blockers; unavailable behavior is absent or disabled with its exact activation input.
+
+User testing follows the automated gates and evaluates workflow fitness, terminology, usefulness, and visual quality. It does not replace automated persistence, authorization, reconciliation, accessibility, or runtime-defect coverage.
+
 ## Release-candidate evidence matrix
 
-Current assessment (27 August 2026): **INCREMENT COMPLETE** at published commit `2860955`, with a bounded Operations/Settings correction verified locally but not yet published. Product-owner acceptance is explicitly not granted. Gemma's revised completion mandate requires authenticated, tenant-scoped Supabase persistence and reload/retrieval/reconciliation evidence for every production workflow; synthetic fixtures, browser-local state, schema-only tests, and polished demonstration routes do not satisfy release-candidate rows. The application spine, golden production agreement-activation workflow, remaining production-backed vertical slices, complete verification matrix, and a new localhost review remain open.
+Current assessment (27 August 2026): **BLOCKED / EXTERNAL ACTIVATION REQUIRED** after the verified application-spine increment. It adds a real non-demo Supabase session/organization boundary plus staging-backed invitation, membership administration, entitlement, seat enforcement, membership-integrity, RLS, audit, and generated-type foundations. P1 cannot close until approved staging Auth URLs/policy and invited administrator/full-view/scoped identities permit the authenticated reload, permission, invitation, membership, seat, audit, mobile, keyboard, console, and network matrix. Dependency order holds P2 until P1 passes. Product-owner acceptance is explicitly not granted. Synthetic fixtures, browser-local state, schema-only tests, and polished demonstration routes do not satisfy release-candidate rows; the golden production agreement-activation workflow, all downstream production-backed slices, and product-owner review remain open.
 
 A **RELEASE CANDIDATE READY** handoff must report every row below with exact evidence, counts, and any approved deferral.
 
+- [ ] All production slices P1–P10 pass their workflow definition and verification gates; any remaining demo-only path is visibly isolated and excluded from production claims.
 - [ ] Approved requirements and traceability are implemented, or deferred with the approved reason.
 - [ ] Core user journeys and every route/control work, respect permissions, and contain no unexplained dead action or mock/live claim.
 - [ ] Database migrations, schema, RLS, Auth, Storage, and tenant-boundary tests pass in the named staging environment.

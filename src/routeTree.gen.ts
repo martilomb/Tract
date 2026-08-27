@@ -23,6 +23,14 @@ import { Route as RecoveriesRouteImport } from './routes/recoveries'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
+import { Route as ApiAuthAcceptInvitationRouteImport } from './routes/api.auth.accept-invitation'
+import { Route as ApiAuthLoginRouteImport } from './routes/api.auth.login'
+import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
+import { Route as ApiAuthOrganizationRouteImport } from './routes/api.auth.organization'
+import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
+import { Route as ApiOrganizationIndexRouteImport } from './routes/api.organization.index'
+import { Route as ApiOrganizationInvitationsRouteImport } from './routes/api.organization.invitations'
+import { Route as ApiOrganizationMembershipsRouteImport } from './routes/api.organization.memberships'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +102,48 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthAcceptInvitationRoute = ApiAuthAcceptInvitationRouteImport.update({
+  id: '/api/auth/accept-invitation',
+  path: '/api/auth/accept-invitation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
+  id: '/api/auth/login',
+  path: '/api/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
+  id: '/api/auth/logout',
+  path: '/api/auth/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthOrganizationRoute = ApiAuthOrganizationRouteImport.update({
+  id: '/api/auth/organization',
+  path: '/api/auth/organization',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
+  id: '/api/auth/session',
+  path: '/api/auth/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrganizationIndexRoute = ApiOrganizationIndexRouteImport.update({
+  id: '/api/organization/',
+  path: '/api/organization/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrganizationInvitationsRoute =
+  ApiOrganizationInvitationsRouteImport.update({
+    id: '/api/organization/invitations',
+    path: '/api/organization/invitations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiOrganizationMembershipsRoute =
+  ApiOrganizationMembershipsRouteImport.update({
+    id: '/api/organization/memberships',
+    path: '/api/organization/memberships',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +160,14 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/auth/accept-invitation': typeof ApiAuthAcceptInvitationRoute
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/organization': typeof ApiAuthOrganizationRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organization/invitations': typeof ApiOrganizationInvitationsRoute
+  '/api/organization/memberships': typeof ApiOrganizationMembershipsRoute
+  '/api/organization/': typeof ApiOrganizationIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +184,14 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/auth/accept-invitation': typeof ApiAuthAcceptInvitationRoute
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/organization': typeof ApiAuthOrganizationRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organization/invitations': typeof ApiOrganizationInvitationsRoute
+  '/api/organization/memberships': typeof ApiOrganizationMembershipsRoute
+  '/api/organization': typeof ApiOrganizationIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +209,14 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/auth/accept-invitation': typeof ApiAuthAcceptInvitationRoute
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/organization': typeof ApiAuthOrganizationRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organization/invitations': typeof ApiOrganizationInvitationsRoute
+  '/api/organization/memberships': typeof ApiOrganizationMembershipsRoute
+  '/api/organization/': typeof ApiOrganizationIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +235,14 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/api/health'
+    | '/api/auth/accept-invitation'
+    | '/api/auth/login'
+    | '/api/auth/logout'
+    | '/api/auth/organization'
+    | '/api/auth/session'
+    | '/api/organization/invitations'
+    | '/api/organization/memberships'
+    | '/api/organization/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +259,14 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/api/health'
+    | '/api/auth/accept-invitation'
+    | '/api/auth/login'
+    | '/api/auth/logout'
+    | '/api/auth/organization'
+    | '/api/auth/session'
+    | '/api/organization/invitations'
+    | '/api/organization/memberships'
+    | '/api/organization'
   id:
     | '__root__'
     | '/'
@@ -193,6 +283,14 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/api/health'
+    | '/api/auth/accept-invitation'
+    | '/api/auth/login'
+    | '/api/auth/logout'
+    | '/api/auth/organization'
+    | '/api/auth/session'
+    | '/api/organization/invitations'
+    | '/api/organization/memberships'
+    | '/api/organization/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +308,14 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiAuthAcceptInvitationRoute: typeof ApiAuthAcceptInvitationRoute
+  ApiAuthLoginRoute: typeof ApiAuthLoginRoute
+  ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
+  ApiAuthOrganizationRoute: typeof ApiAuthOrganizationRoute
+  ApiAuthSessionRoute: typeof ApiAuthSessionRoute
+  ApiOrganizationInvitationsRoute: typeof ApiOrganizationInvitationsRoute
+  ApiOrganizationMembershipsRoute: typeof ApiOrganizationMembershipsRoute
+  ApiOrganizationIndexRoute: typeof ApiOrganizationIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -312,6 +418,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/accept-invitation': {
+      id: '/api/auth/accept-invitation'
+      path: '/api/auth/accept-invitation'
+      fullPath: '/api/auth/accept-invitation'
+      preLoaderRoute: typeof ApiAuthAcceptInvitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/login': {
+      id: '/api/auth/login'
+      path: '/api/auth/login'
+      fullPath: '/api/auth/login'
+      preLoaderRoute: typeof ApiAuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/logout': {
+      id: '/api/auth/logout'
+      path: '/api/auth/logout'
+      fullPath: '/api/auth/logout'
+      preLoaderRoute: typeof ApiAuthLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/organization': {
+      id: '/api/auth/organization'
+      path: '/api/auth/organization'
+      fullPath: '/api/auth/organization'
+      preLoaderRoute: typeof ApiAuthOrganizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/session': {
+      id: '/api/auth/session'
+      path: '/api/auth/session'
+      fullPath: '/api/auth/session'
+      preLoaderRoute: typeof ApiAuthSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/organization/': {
+      id: '/api/organization/'
+      path: '/api/organization'
+      fullPath: '/api/organization/'
+      preLoaderRoute: typeof ApiOrganizationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/organization/invitations': {
+      id: '/api/organization/invitations'
+      path: '/api/organization/invitations'
+      fullPath: '/api/organization/invitations'
+      preLoaderRoute: typeof ApiOrganizationInvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/organization/memberships': {
+      id: '/api/organization/memberships'
+      path: '/api/organization/memberships'
+      fullPath: '/api/organization/memberships'
+      preLoaderRoute: typeof ApiOrganizationMembershipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -330,6 +492,14 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiAuthAcceptInvitationRoute: ApiAuthAcceptInvitationRoute,
+  ApiAuthLoginRoute: ApiAuthLoginRoute,
+  ApiAuthLogoutRoute: ApiAuthLogoutRoute,
+  ApiAuthOrganizationRoute: ApiAuthOrganizationRoute,
+  ApiAuthSessionRoute: ApiAuthSessionRoute,
+  ApiOrganizationInvitationsRoute: ApiOrganizationInvitationsRoute,
+  ApiOrganizationMembershipsRoute: ApiOrganizationMembershipsRoute,
+  ApiOrganizationIndexRoute: ApiOrganizationIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -43,6 +43,7 @@ describe("static database migration contract", () => {
       "202608240001_milestone10_enterprise_workflows.sql",
       "202608240002_milestone10_integrity_guards.sql",
       "202608240003_milestone10_acceptance_controls.sql",
+      "202608270001_application_spine.sql",
     ]);
     for (const { file, sql } of migrations) {
       expect(sql.trimStart(), file).toMatch(/^begin;/);
@@ -106,6 +107,22 @@ describe("static database migration contract", () => {
     expect(combinedSql).toContain("field mapping contains an unsupported key");
     expect(combinedSql).toContain(
       "connector endpoint host must be present in the exact host allowlist",
+    );
+    expect(combinedSql).toContain("permission_grants_member_same_tenant");
+    expect(combinedSql).toContain("when not app.is_org_member(target_organization_id) then false");
+    expect(combinedSql).toContain("organization seat entitlement exceeded");
+    expect(combinedSql).toContain("organization must retain an active administrator");
+    expect(combinedSql).toContain("membership user_id is immutable");
+    expect(combinedSql).toContain("token_digest bytea not null");
+    expect(combinedSql).toContain("extensions.digest(invitation_token, 'sha256')");
+    expect(combinedSql).toContain("public.accept_organization_invitation");
+    expect(combinedSql).toContain("append_organization_audit_event");
+    expect(combinedSql).toContain("return old;");
+    expect(combinedSql).toContain("grant select on\n  public.organization_subscriptions,");
+    expect(combinedSql).not.toContain("create policy organization_subscriptions_admin_all");
+    expect(combinedSql).not.toContain("create policy seat_entitlements_admin_all");
+    expect(combinedSql).not.toContain(
+      "grant select, insert, update, delete on public.organization_invitations",
     );
     expect(combinedSql).not.toMatch(/using\s*\(\s*true\s*\)/i);
     expect(combinedSql).not.toMatch(/with check\s*\(\s*true\s*\)/i);

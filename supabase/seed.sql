@@ -17,6 +17,24 @@ insert into public.organizations (id, name, slug, default_currency) values
   ('20000000-0000-0000-0000-000000000002', 'Tract Local B', 'tract-local-b', 'EUR')
 on conflict (id) do nothing;
 
+insert into public.plan_catalog (id, code, name, seat_limit, features) values
+  ('60000000-0000-0000-0000-000000000001', 'local-pilot', 'Local pilot', 3, '{"demo":true}'::jsonb)
+on conflict (id) do nothing;
+
+insert into public.organization_subscriptions (
+  id, organization_id, plan_id, status, current_period_start, created_by
+) values
+  ('61000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 'active', now(), '10000000-0000-0000-0000-000000000001'),
+  ('61000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000001', 'active', now(), '10000000-0000-0000-0000-000000000003')
+on conflict (id) do nothing;
+
+insert into public.seat_entitlements (
+  id, organization_id, subscription_id, version, status, included_seats, effective_from, source, created_by
+) values
+  ('62000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '61000000-0000-0000-0000-000000000001', 1, 'active', 3, now(), 'local-seed', '10000000-0000-0000-0000-000000000001'),
+  ('62000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', '61000000-0000-0000-0000-000000000002', 1, 'active', 1, now(), 'local-seed', '10000000-0000-0000-0000-000000000003')
+on conflict (id) do nothing;
+
 insert into public.memberships (id, organization_id, user_id, role) values
   ('21000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'administrator'),
   ('21000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'member'),
