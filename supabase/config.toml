@@ -21,10 +21,25 @@ file_size_limit = "25MiB"
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:8080"
-additional_redirect_urls = ["http://localhost:8080"]
+site_url = "http://127.0.0.1:8081"
+additional_redirect_urls = ["http://127.0.0.1:8081", "http://localhost:8081"]
+# Public self-signup stays closed; administrators create or invite approved identities.
 enable_signup = false
 minimum_password_length = 12
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+[auth.email]
+# Keep the email/password provider available for existing approved identities.
+# The top-level signup gate above still prevents public account creation.
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+secure_password_change = true
+max_frequency = "1m"
+otp_length = 8
+otp_expiry = 3600
 
 [auth.mfa.totp]
 enroll_enabled = true

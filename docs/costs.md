@@ -9,6 +9,8 @@ For a low-usage production pilot, the currently verified base estimate is about 
 - Supabase Pro starts at US$25 per month.
 - Cloudflare Workers Paid has a US$5 per month account minimum.
 
+The current no-spend Supabase staging project supports the tested one-hour JWT, refresh rotation, public-signup denial, email confirmation, and basic TOTP boundary. Supabase documents time-boxed/inactivity/single-session controls and leaked-password protection as Pro-plan features; they remain unactivated until the production plan and spend are approved. They are included in the US$25 Pro base assumption above rather than treated as a separate provider charge.
+
 This estimate excludes database/compute/storage/egress overages, domain registration, licensed vehicle-volume data, email or SMS delivery, document scanning/extraction, enterprise SSO, support, and regional/compliance options. These are approval-gated because their price and architecture depend on the selected provider and customer requirements.
 
 Primary pricing references, verified 2026-08-21:

@@ -31,6 +31,7 @@
 - Overview deliberately separates organization-wide content from scoped analysis: six organization-wide headline tiles, important alerts, quarterly review queue, and OEM recovery sit above the OEM/program/model-year/part selector, which scopes only the graph/table and Active Programs below it.
 - Programs, Part Numbers, Recoveries, and Forecasts provide full analytical coverage through progressive drill-down rather than exposing every database field at once. Every visualization answers a stated business question and reconciles to its table and export.
 - Thresholds are configurable, versioned **materiality rules**, not contractual caps. The neutral default action is evidence review and scoped report export, not a remedy, claim, clawback, or accounting posting.
+- Non-production staging Auth uses invitation or administrator-created accounts, exact port-8081 local redirects, required email confirmation, a 12-character minimum password, one-hour access JWTs, refresh rotation/reuse detection, and optional free TOTP. Public self-signup is disabled. Paid session timeouts, single-session enforcement, and leaked-password protection remain inactive pending an approved Supabase Pro-plan spend decision.
 
 ## Deliberately not claimed or automated
 
@@ -42,6 +43,6 @@
 
 - IHS/AFS provider specification, licensed use/retention, cadence, schemas, samples, and credentials.
 - Customer SAP/ERP transports, object/API specifications, network policy, mapping rules, samples, credentials, and schedules.
-- Customer identity provider, MFA/SSO policy, region/residency, RPO/RTO, retention, incident terms, and formal control requirements.
+- Customer identity provider, mandatory MFA/SSO and recovery policy, production Auth origins, transactional email, paid session-control decision, region/residency, RPO/RTO, retention, incident terms, and formal control requirements.
 - Required document types, languages, malware scanning, field mappings, human-review roles, and approved extraction provider.
 - Customer claim-pack and approval templates, notification recipients/channels, FX sources, and multi-currency settlement rules.

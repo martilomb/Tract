@@ -14,6 +14,12 @@ Production browser sessions are server-mediated. Access and refresh values are H
 
 The invitation acceptance RPC intentionally uses `SECURITY DEFINER` to keep membership creation, seat enforcement, invitation status, outbox evidence, and audit atomic. Its `search_path` is pinned; execute is revoked from public/anonymous roles; the authenticated caller must match the normalized invitation email and raw token digest; expired, used, wrong-user, cross-tenant, over-seat, and replay paths fail. The single corresponding security-advisor warning is reviewed and accepted for this bounded function, not treated as a blanket waiver for other security-definer functions.
 
+## Staging Auth boundary
+
+The confirmed non-production project uses `http://127.0.0.1:8081` as its site URL and exact additional redirects for that origin and `http://localhost:8081`; no wildcard is configured. Top-level public signup is disabled. The email/password provider remains enabled only so administrator-created or invited existing identities can sign in, and email confirmation is required. Passwords have a 12-character minimum, sensitive password changes require the secure flow, access JWTs last one hour, and refresh-token rotation retains Supabase's recommended 10-second reuse interval.
+
+Basic TOTP is enabled and the temporary administrator passed enrollment, challenge, AAL2 verification, and factor cleanup without paid activation. Supabase time-boxed sessions, inactivity timeout, single-session enforcement, and leaked-password protection require a Pro plan; they remain disabled because no spend was approved. Runtime-only randomized staging credentials were never written to source, documentation, Git, screenshots, or application logs. The four test identities will be deactivated after the authenticated vertical-slice matrix; the tenant fixtures and immutable audit evidence are retained only while that matrix is active.
+
 ## Data and documents
 
 - Tenant ids cannot be reassigned after creation.
@@ -44,6 +50,6 @@ The invitation acceptance RPC intentionally uses `SECURITY DEFINER` to keep memb
 
 ## Pending production decisions
 
-MFA policy, enterprise SSO, data region/residency, malware scanner, retention duration, formal control mapping, penetration testing, and customer security questionnaires require customer or account-level decisions. No formal compliance claim is made.
+Mandatory customer MFA policy, enterprise SSO, paid session controls, leaked-password protection, data region/residency, malware scanner, retention duration, formal control mapping, penetration testing, and customer security questionnaires require customer, account-level, or approved-spend decisions. No formal compliance claim is made.
 
-Staging verification through migration `202608270001` reports RLS enabled on all 74 public tables, 138 public policies, one reviewed security-advisor warning for the bounded invitation RPC, and 85/85 transactional repository pgTAP assertions covering tenant, lifecycle, accounting, ingestion, and application-spine controls. These checks are representative controls, not a claim of exhaustive security proof.
+Staging verification through migration `202608270001` reports RLS enabled on all 74 public tables, 138 public policies, two reviewed security-advisor warnings—the bounded invitation RPC and paid-plan-only leaked-password protection—and 85/85 transactional repository pgTAP assertions covering tenant, lifecycle, accounting, ingestion, and application-spine controls. These checks are representative controls, not a claim of exhaustive security proof.
