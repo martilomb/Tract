@@ -28,6 +28,7 @@ import { Route as ApiAuthLoginRouteImport } from './routes/api.auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
 import { Route as ApiAuthOrganizationRouteImport } from './routes/api.auth.organization'
 import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
+import { Route as ApiContractsIndexRouteImport } from './routes/api.contracts.index'
 import { Route as ApiOrganizationIndexRouteImport } from './routes/api.organization.index'
 import { Route as ApiOrganizationInvitationsRouteImport } from './routes/api.organization.invitations'
 import { Route as ApiOrganizationMembershipsRouteImport } from './routes/api.organization.memberships'
@@ -127,6 +128,11 @@ const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   path: '/api/auth/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiContractsIndexRoute = ApiContractsIndexRouteImport.update({
+  id: '/api/contracts/',
+  path: '/api/contracts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOrganizationIndexRoute = ApiOrganizationIndexRouteImport.update({
   id: '/api/organization/',
   path: '/api/organization/',
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/organization/invitations': typeof ApiOrganizationInvitationsRoute
   '/api/organization/memberships': typeof ApiOrganizationMembershipsRoute
+  '/api/contracts/': typeof ApiContractsIndexRoute
   '/api/organization/': typeof ApiOrganizationIndexRoute
 }
 export interface FileRoutesByTo {
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/organization/invitations': typeof ApiOrganizationInvitationsRoute
   '/api/organization/memberships': typeof ApiOrganizationMembershipsRoute
+  '/api/contracts': typeof ApiContractsIndexRoute
   '/api/organization': typeof ApiOrganizationIndexRoute
 }
 export interface FileRoutesById {
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/organization/invitations': typeof ApiOrganizationInvitationsRoute
   '/api/organization/memberships': typeof ApiOrganizationMembershipsRoute
+  '/api/contracts/': typeof ApiContractsIndexRoute
   '/api/organization/': typeof ApiOrganizationIndexRoute
 }
 export interface FileRouteTypes {
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/auth/session'
     | '/api/organization/invitations'
     | '/api/organization/memberships'
+    | '/api/contracts/'
     | '/api/organization/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/api/auth/session'
     | '/api/organization/invitations'
     | '/api/organization/memberships'
+    | '/api/contracts'
     | '/api/organization'
   id:
     | '__root__'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/api/auth/session'
     | '/api/organization/invitations'
     | '/api/organization/memberships'
+    | '/api/contracts/'
     | '/api/organization/'
   fileRoutesById: FileRoutesById
 }
@@ -315,6 +327,7 @@ export interface RootRouteChildren {
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiOrganizationInvitationsRoute: typeof ApiOrganizationInvitationsRoute
   ApiOrganizationMembershipsRoute: typeof ApiOrganizationMembershipsRoute
+  ApiContractsIndexRoute: typeof ApiContractsIndexRoute
   ApiOrganizationIndexRoute: typeof ApiOrganizationIndexRoute
 }
 
@@ -453,6 +466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/contracts/': {
+      id: '/api/contracts/'
+      path: '/api/contracts'
+      fullPath: '/api/contracts/'
+      preLoaderRoute: typeof ApiContractsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/organization/': {
       id: '/api/organization/'
       path: '/api/organization'
@@ -499,6 +519,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiOrganizationInvitationsRoute: ApiOrganizationInvitationsRoute,
   ApiOrganizationMembershipsRoute: ApiOrganizationMembershipsRoute,
+  ApiContractsIndexRoute: ApiContractsIndexRoute,
   ApiOrganizationIndexRoute: ApiOrganizationIndexRoute,
 }
 export const routeTree = rootRouteImport

@@ -4,7 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17";
+    PostgrestVersion: "14.5";
   };
   public: {
     Tables: {
@@ -4634,15 +4634,26 @@ export type Database = {
           agreement_number: string;
           approved_at: string | null;
           approved_by: string | null;
+          contractual_limit_amount: number | null;
           created_at: string;
           effective_from: string | null;
           effective_to: string | null;
           eligible_volume_basis: Database["public"]["Enums"]["eligible_volume_basis"];
+          evidence_document_version_id: string | null;
+          evidence_reference: string | null;
+          evidence_review_method: string | null;
+          evidence_reviewed_at: string | null;
+          evidence_reviewed_by: string | null;
+          evidence_summary: string | null;
           expires_on: string | null;
+          forecast_assumptions: Json;
+          forecast_assumptions_version: string | null;
           id: string;
           organization_id: string;
           owner_user_id: string | null;
           recoverable_cost: number;
+          rounding_mode: string;
+          rounding_scale: number;
           settlement_currency: string;
           status: Database["public"]["Enums"]["recovery_agreement_status"];
           supersedes_id: string | null;
@@ -4654,15 +4665,26 @@ export type Database = {
           agreement_number: string;
           approved_at?: string | null;
           approved_by?: string | null;
+          contractual_limit_amount?: number | null;
           created_at?: string;
           effective_from?: string | null;
           effective_to?: string | null;
           eligible_volume_basis: Database["public"]["Enums"]["eligible_volume_basis"];
+          evidence_document_version_id?: string | null;
+          evidence_reference?: string | null;
+          evidence_review_method?: string | null;
+          evidence_reviewed_at?: string | null;
+          evidence_reviewed_by?: string | null;
+          evidence_summary?: string | null;
           expires_on?: string | null;
+          forecast_assumptions?: Json;
+          forecast_assumptions_version?: string | null;
           id?: string;
           organization_id: string;
           owner_user_id?: string | null;
           recoverable_cost: number;
+          rounding_mode?: string;
+          rounding_scale?: number;
           settlement_currency: string;
           status?: Database["public"]["Enums"]["recovery_agreement_status"];
           supersedes_id?: string | null;
@@ -4674,15 +4696,26 @@ export type Database = {
           agreement_number?: string;
           approved_at?: string | null;
           approved_by?: string | null;
+          contractual_limit_amount?: number | null;
           created_at?: string;
           effective_from?: string | null;
           effective_to?: string | null;
           eligible_volume_basis?: Database["public"]["Enums"]["eligible_volume_basis"];
+          evidence_document_version_id?: string | null;
+          evidence_reference?: string | null;
+          evidence_review_method?: string | null;
+          evidence_reviewed_at?: string | null;
+          evidence_reviewed_by?: string | null;
+          evidence_summary?: string | null;
           expires_on?: string | null;
+          forecast_assumptions?: Json;
+          forecast_assumptions_version?: string | null;
           id?: string;
           organization_id?: string;
           owner_user_id?: string | null;
           recoverable_cost?: number;
+          rounding_mode?: string;
+          rounding_scale?: number;
           settlement_currency?: string;
           status?: Database["public"]["Enums"]["recovery_agreement_status"];
           supersedes_id?: string | null;
@@ -4691,6 +4724,20 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "recovery_agreement_evidence_same_tenant";
+            columns: ["organization_id", "evidence_document_version_id"];
+            isOneToOne: false;
+            referencedRelation: "document_versions";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "recovery_agreements_evidence_document_version_id_fkey";
+            columns: ["evidence_document_version_id"];
+            isOneToOne: false;
+            referencedRelation: "document_versions";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "recovery_agreements_organization_id_fkey";
             columns: ["organization_id"];
@@ -5710,6 +5757,66 @@ export type Database = {
     Functions: {
       accept_organization_invitation: {
         Args: { invitation_token: string };
+        Returns: string;
+      };
+      activate_recovery_agreement: {
+        Args: { target_agreement_id: string };
+        Returns: {
+          agreement_number: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          contractual_limit_amount: number | null;
+          created_at: string;
+          effective_from: string | null;
+          effective_to: string | null;
+          eligible_volume_basis: Database["public"]["Enums"]["eligible_volume_basis"];
+          evidence_document_version_id: string | null;
+          evidence_reference: string | null;
+          evidence_review_method: string | null;
+          evidence_reviewed_at: string | null;
+          evidence_reviewed_by: string | null;
+          evidence_summary: string | null;
+          expires_on: string | null;
+          forecast_assumptions: Json;
+          forecast_assumptions_version: string | null;
+          id: string;
+          organization_id: string;
+          owner_user_id: string | null;
+          recoverable_cost: number;
+          rounding_mode: string;
+          rounding_scale: number;
+          settlement_currency: string;
+          status: Database["public"]["Enums"]["recovery_agreement_status"];
+          supersedes_id: string | null;
+          supplier_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "recovery_agreements";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      create_recovery_master_data: {
+        Args: { master_data: Json; target_organization_id: string };
+        Returns: Json;
+      };
+      get_recovery_workspace: {
+        Args: { target_organization_id: string };
+        Returns: Json;
+      };
+      review_and_activate_recovery_agreement: {
+        Args: { target_agreement_id: string };
+        Returns: string;
+      };
+      save_recovery_agreement_draft: {
+        Args: {
+          draft_data: Json;
+          target_agreement_id: string;
+          target_organization_id: string;
+        };
         Returns: string;
       };
     };

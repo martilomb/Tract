@@ -44,6 +44,8 @@ describe("static database migration contract", () => {
       "202608240002_milestone10_integrity_guards.sql",
       "202608240003_milestone10_acceptance_controls.sql",
       "202608270001_application_spine.sql",
+      "202608290001_contract_activation_slice.sql",
+      "202608290002_contract_workspace_projection.sql",
     ]);
     for (const { file, sql } of migrations) {
       expect(sql.trimStart(), file).toMatch(/^begin;/);
@@ -117,6 +119,24 @@ describe("static database migration contract", () => {
     expect(combinedSql).toContain("extensions.digest(invitation_token, 'sha256')");
     expect(combinedSql).toContain("public.accept_organization_invitation");
     expect(combinedSql).toContain("append_organization_audit_event");
+    expect(combinedSql).toContain("public.save_recovery_agreement_draft");
+    expect(combinedSql).toContain("public.create_recovery_master_data");
+    expect(combinedSql).toContain("public.review_and_activate_recovery_agreement");
+    expect(combinedSql).toContain("public.get_recovery_workspace");
+    expect(combinedSql).toContain("agreement.recoverable_cost::text");
+    expect(combinedSql).toContain("rate.per_unit_rate::text");
+    expect(combinedSql).toContain("recovery activation requires reviewed agreement evidence");
+    expect(combinedSql).toContain("recovery activation requires a model year for a linked program");
+    expect(combinedSql).toContain("recovery activation requires versioned forecast assumptions");
+    expect(combinedSql).toContain(
+      "recovery rate currency must match the agreement settlement currency",
+    );
+    expect(combinedSql).toContain("approved agreement links are immutable");
+    expect(combinedSql).toContain("evidence_review_method = 'manual_attestation'");
+    expect(combinedSql).toContain("security invoker");
+    expect(combinedSql).toContain(
+      "revoke all on function public.review_and_activate_recovery_agreement(uuid) from public, anon",
+    );
     expect(combinedSql).toContain("return old;");
     expect(combinedSql).toContain("grant select on\n  public.organization_subscriptions,");
     expect(combinedSql).not.toContain("create policy organization_subscriptions_admin_all");

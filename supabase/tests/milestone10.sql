@@ -31,14 +31,22 @@ insert into public.part_revisions (
 
 insert into public.recovery_agreements (
   id, organization_id, agreement_number, title, supplier_id, settlement_currency,
-  recoverable_cost, eligible_volume_basis, effective_from, owner_user_id
+  recoverable_cost, eligible_volume_basis, effective_from, owner_user_id,
+  rounding_scale, rounding_mode, forecast_assumptions_version, forecast_assumptions,
+  evidence_review_method, evidence_reference, evidence_summary, evidence_reviewed_by,
+  evidence_reviewed_at
 ) values (
   '63000000-0000-0000-0000-000000000001',
   '20000000-0000-0000-0000-000000000001',
   'AGR-LOCAL-001', 'Local recovery agreement',
   '33000000-0000-0000-0000-000000000001', 'USD', 2400000,
   'part_shipments', '2026-08-01',
-  '10000000-0000-0000-0000-000000000001'
+  '10000000-0000-0000-0000-000000000001',
+  2, 'half_even', 'forecast-assumptions-v1',
+  '{"basis":"approved program volume","annual_growth_percent":"0"}'::jsonb,
+  'manual_attestation', 'Commercial agreement register reference',
+  'Authorized administrator reviewed the executed agreement outside the document provider.',
+  '10000000-0000-0000-0000-000000000001', now()
 );
 
 insert into public.recovery_agreement_programs (
@@ -58,6 +66,14 @@ insert into public.recovery_agreement_parts (
   '63000000-0000-0000-0000-000000000001',
   '41000000-0000-0000-0000-000000000001',
   '62000000-0000-0000-0000-000000000001'
+);
+
+insert into public.recovery_agreement_model_years (
+  organization_id, recovery_agreement_id, program_model_year_id
+) values (
+  '20000000-0000-0000-0000-000000000001',
+  '63000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
 );
 
 insert into public.recovery_agreement_rate_periods (

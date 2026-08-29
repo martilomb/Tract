@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductionOrganization } from "@/components/production-organization";
+import { ProductionContracts } from "@/components/production-contracts";
 import { isApplicationSession, type ApplicationSession } from "@/domain/application-session";
 
 type SessionState =
@@ -87,6 +88,16 @@ export function ProductionSpine() {
   }
 
   const session = state.session;
+  if (location.pathname === "/contracts") {
+    return (
+      <ProductionContracts
+        session={session}
+        initialAgreementId={new URLSearchParams(location.searchStr).get("agreement") ?? undefined}
+        onSignedOut={(nextSession) => setState({ kind: "ready", session: nextSession })}
+      />
+    );
+  }
+
   const pathIsAvailable = location.pathname === "/" || location.pathname === "/organization";
   return (
     <ProductionCard
@@ -153,6 +164,10 @@ export function ProductionSpine() {
           </>
         )}
       </section>
+
+      <Button asChild className="mt-4 w-full">
+        <a href="/contracts">Open recovery agreements</a>
+      </Button>
 
       <InvitationAcceptance token={invitationTokenFrom(location.hash)} />
 

@@ -23,6 +23,12 @@ Organization invitations use 256-bit random URL-safe tokens. Only the SHA-256 di
 
 Plans, subscriptions, and versioned seat entitlements are provider-neutral. Provider/customer/subscription identifiers are optional opaque references. Authenticated administrators and full-view users can read bounded entitlement state, but only the server service role may mutate plans, subscriptions, or entitlements; database triggers serialize and fail closed on membership activation and pending-invitation seat reservation.
 
+### Production Contracts slice
+
+Non-demo `/contracts` resolves the organization exclusively from the authenticated server session, then calls typed end-user Supabase repositories. `get_recovery_workspace` is the single tenant-scoped projection for governed master choices, agreements, exact decimal terms/rates, linked accruals, approvals, provenance, and audit. Numeric accounting values are cast to text in Postgres and remain strings through validation, detail, and CSV export.
+
+`create_recovery_master_data` and `save_recovery_agreement_draft` are bounded security-invoker transactions. They recheck administrator access, reject case-insensitive tenant duplicates, keep compatible program/model-year/part/revision links, and retain incomplete work without creating an active recovery. `review_and_activate_recovery_agreement` validates reviewed evidence, versioned forecast assumptions, eligible-volume basis, current settlement-currency rate, controlled links, and optional DCR status before it approves the agreement, creates the accrual/rates, and invokes the existing atomic activation boundary. Any error rolls back the entire activation attempt. Public and anonymous execution of all four functions is revoked.
+
 ## Mandatory invariants
 
 - `organization_id` is the tenant boundary on every owned record.
@@ -35,7 +41,7 @@ Plans, subscriptions, and versioned seat entitlements are provider-neutral. Prov
 - Policy and workflow changes are versioned and effective-dated. Existing calculation runs retain the exact configuration and source-event references used.
 - Over-recovery remains visible but has no automatic accounting treatment.
 - Programs, model years, parts/revisions, DCRs, and recovery agreements are independent canonical records joined by tenant-bound relationships. Recovery activation and calculation require an effective approved agreement.
-- Agreement activation is one database transaction. The administrator-only `app.activate_recovery_agreement` operation locks the agreement, validates approved/effective evidence, controlled program/part links, DCR state when present, currency, and every draft accrual, then activates the agreement and valid accruals together. Any invalid row aborts the transaction; callers cannot directly set an agreement Active.
+- Agreement activation is one database transaction. The administrator-only public review/activation wrapper and internal `app.activate_recovery_agreement` operation lock the agreement, validate approved/effective evidence, controlled program/model-year/part links, DCR state when present, currency/current rates, volume basis, rounding, forecast assumptions, and every draft accrual, then activate the agreement and valid accruals together. Any invalid row aborts the transaction; callers cannot directly set an agreement Active.
 - The client domain mirrors that fail-closed boundary for the labelled synthetic workflow: `activateRecoveryAgreement` is a pure all-or-nothing transition requiring reviewed evidence, controlled compatible program/model-year/part links, confirmed volume basis, approved half-even rounding boundary, versioned forecast assumptions, and Approved/Active state for every optional linked DCR. A validation error returns no active record and leaves the explicit draft available for correction; it never claims a database posting.
 - Vehicle-production, ERP, and document sources remain independent. Related values reconcile; no source overwrites another and one economic event cannot post twice.
 
@@ -76,4 +82,4 @@ Recovery replay canonicalizes event/rate ordering and hashes the complete terms,
 
 ## Demo boundary
 
-The visually labelled local demo imports `src/lib/demo-data.ts`. Production builds fail closed unless demo mode is explicitly enabled; the synthetic routes are not presented as persisted records or live integrations. The approved non-production staging project has the migration ledger, RLS tests, and generated types, but leaving demo mode still requires approved hosted Auth identities, environment configuration, and permission-aware browser validation.
+The visually labelled local demo imports `src/lib/demo-data.ts`. Production builds fail closed unless demo mode is explicitly enabled; the synthetic routes are not presented as persisted records or live integrations. P1 session/organization and P2 Contracts now pass authenticated non-demo staging acceptance. Programs/Parts and every later product route remain gated until their own persisted repository/action/reload/permission/audit/reconciliation matrix passes.
