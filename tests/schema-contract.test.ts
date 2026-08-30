@@ -46,6 +46,9 @@ describe("static database migration contract", () => {
       "202608270001_application_spine.sql",
       "202608290001_contract_activation_slice.sql",
       "202608290002_contract_workspace_projection.sql",
+      "202608290003_program_parts_production.sql",
+      "202608290004_program_parts_function_correction.sql",
+      "202608290005_program_parts_policy_correction.sql",
     ]);
     for (const { file, sql } of migrations) {
       expect(sql.trimStart(), file).toMatch(/^begin;/);
@@ -123,6 +126,19 @@ describe("static database migration contract", () => {
     expect(combinedSql).toContain("public.create_recovery_master_data");
     expect(combinedSql).toContain("public.review_and_activate_recovery_agreement");
     expect(combinedSql).toContain("public.get_recovery_workspace");
+    expect(combinedSql).toContain("public.get_program_parts_workspace");
+    expect(combinedSql).toContain("public.create_program_master_data");
+    expect(combinedSql).toContain("public.create_part_master_data");
+    expect(combinedSql).toContain("public.create_master_data_alias");
+    expect(combinedSql).toContain("effective_part_revisions_no_overlap");
+    expect(combinedSql).toContain("approved master-data aliases are immutable");
+    expect(combinedSql).toContain(
+      "duplicate candidates must reference same-tenant records of the declared type",
+    );
+    expect(combinedSql).toContain("create policy programs_admin_insert");
+    expect(combinedSql).toContain("create policy programs_admin_update");
+    expect(combinedSql).toContain("create policy programs_admin_delete");
+    expect(combinedSql).toContain("drop policy programs_write on public.programs");
     expect(combinedSql).toContain("agreement.recoverable_cost::text");
     expect(combinedSql).toContain("rate.per_unit_rate::text");
     expect(combinedSql).toContain("recovery activation requires reviewed agreement evidence");

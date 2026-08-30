@@ -5799,8 +5799,35 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      create_master_data_alias: {
+        Args: { alias_data: Json; target_organization_id: string };
+        Returns: string;
+      };
+      create_part_master_data: {
+        Args: { master_data: Json; target_organization_id: string };
+        Returns: Json;
+      };
+      create_program_master_data: {
+        Args: { master_data: Json; target_organization_id: string };
+        Returns: Json;
+      };
       create_recovery_master_data: {
         Args: { master_data: Json; target_organization_id: string };
+        Returns: Json;
+      };
+      get_program_parts_workspace: {
+        Args: {
+          as_of_date?: string;
+          page_limit?: number;
+          page_offset?: number;
+          search_text?: string;
+          selected_part_id?: string;
+          selected_program_id?: string;
+          sort_direction?: string;
+          sort_field?: string;
+          target_organization_id: string;
+          target_view?: string;
+        };
         Returns: Json;
       };
       get_recovery_workspace: {

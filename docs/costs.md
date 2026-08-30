@@ -6,6 +6,8 @@ Local development uses installed tooling and synthetic fixtures. The approved Gi
 
 P2 Contracts acceptance used only the existing no-spend staging database/Auth allocation and a synthetic agreement/master-data fixture. It did not create a document bucket, invoke scanning/extraction, enable a paid Auth feature, or connect a live provider, so it adds no approved recurring service cost.
 
+P3 Programs/Parts acceptance also used only the existing no-spend staging allocation and clearly synthetic retained master-data records. It added no provider, Storage object, paid Auth control, deployment, or recurring service cost.
+
 For a low-usage production pilot, the currently verified base estimate is about **US$30 per month**:
 
 - Supabase Pro starts at US$25 per month.

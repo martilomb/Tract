@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductionOrganization } from "@/components/production-organization";
 import { ProductionContracts } from "@/components/production-contracts";
+import { ProductionMasterData } from "@/components/production-master-data";
 import { isApplicationSession, type ApplicationSession } from "@/domain/application-session";
 
 type SessionState =
@@ -98,6 +99,17 @@ export function ProductionSpine() {
     );
   }
 
+  if (location.pathname === "/programs" || location.pathname === "/parts") {
+    return (
+      <ProductionMasterData
+        session={session}
+        view={location.pathname === "/programs" ? "programs" : "parts"}
+        initialSearch={location.searchStr}
+        onSignedOut={(nextSession) => setState({ kind: "ready", session: nextSession })}
+      />
+    );
+  }
+
   const pathIsAvailable = location.pathname === "/" || location.pathname === "/organization";
   return (
     <ProductionCard
@@ -168,6 +180,14 @@ export function ProductionSpine() {
       <Button asChild className="mt-4 w-full">
         <a href="/contracts">Open recovery agreements</a>
       </Button>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <Button asChild variant="outline">
+          <a href="/programs">Open programs</a>
+        </Button>
+        <Button asChild variant="outline">
+          <a href="/parts">Open part numbers</a>
+        </Button>
+      </div>
 
       <InvitationAcceptance token={invitationTokenFrom(location.hash)} />
 
